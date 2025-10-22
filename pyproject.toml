@@ -1,0 +1,19 @@
+[project]
+name = "chestxsim"
+version = "0.1.0"
+description = "DCT simulation pipeline for chest volumes"
+authors = [{ name = "Your your", email = "your@email.com" }]
+requires-python = ">=3.10"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+run_simulation = "chestxsim.cli.run_simulation:main"

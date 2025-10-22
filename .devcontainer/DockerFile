@@ -1,0 +1,25 @@
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+# System dependencies
+RUN apt-get update && apt-get install -y \
+    python3.10 python3.10-venv python3-pip \
+    libglib2.0-0 libxext6 libsm6 libxrender1 libgl1-mesa-glx \
+    && rm -rf /var/lib/apt/lists/*
+
+# Use Python 3.10 explicitly
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 && \
+    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
+# Upgrade pip + setuptools + wheel
+RUN pip install --upgrade pip setuptools wheel
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy project
+COPY . /workspace
+
+# Install pip-only dependencies
+RUN pip install cupy-cuda12x torch==2.1.0 torchvision==0.16.0 \
+    && pip install astra-toolbox \
+    && pip install -e .

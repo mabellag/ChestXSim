@@ -1,0 +1,73 @@
+{
+  "modality": "DCT",
+  "geometry": {
+    "detector_size": [4288, 4288],
+    "pixel_size": [0.1, 0.1],
+    "binning_proj": 4,
+    "SDD": 1800,
+    "bucky": 47.43,
+    "step": 16.077,
+    "nstep": 60
+  },
+  "preprocessing": {
+    "bed_removal": {
+      "enabled": true,
+      "use-dl": false,
+      "threshold": -200,
+      "save": false
+    },
+    "air_cropping": {
+      "enabled": true,
+      "axis": 2,
+      "tol": 5,
+      "delta": 5,
+      "channel": 0,
+      "save": false
+    },
+    "volume_extension": {
+      "enabled": true,
+      "ext_vals_mm": [100, 100],
+      "target_height": null,
+      "useGeometry": true,
+      "chest_center": 150,
+      "save": false
+    },
+   
+    "unit_conversion": {
+      "enabled": true,
+
+      "units": "mu",
+      "mu_factor": [1.0, 1.0],
+      "e_eff": null,
+      "voltage": 60,
+      "save": true
+    }
+
+  },
+  "projection": {
+    "projection": {
+      "enabled": true,
+      "opt": "Fuxsim",
+      "channel_wise": true,
+      "save": true
+
+    }
+  },
+  "reconstruction": {
+    "sample_projections": {
+      "enabled": false,
+      "nprojs": 360,
+      "sampling_rate": 1
+    },
+    
+    "FDK-Fuxsim": {
+      "enabled": true,
+      "opt": "Fuxsim", 
+      "reco_dim_px": [400, 80, 200],
+      "reco_vx": [1.25, 5.0, 1.25],
+      "span_angle": 360,
+      "offset_filter": 0.005,
+      "save": true
+    }
+  }
+}
