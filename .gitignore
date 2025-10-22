@@ -11,8 +11,13 @@ inputs/*
 !inputs/.gitkeep
 
 # materials folder and subfolders
+# materials folder and subfolders
 materials/*
 !materials/.gitkeep
+!materials/executables/
+!materials/models/
+!materials/mac/
+!materials/spectra/
 materials/executables/*
 !materials/executables/.gitkeep
 materials/models/*
@@ -21,6 +26,7 @@ materials/mac/*
 !materials/mac/.gitkeep
 materials/spectra/*
 !materials/spectra/.gitkeep
+
 
 
 # examples folders
