@@ -1,6 +1,5 @@
 results/
 inputs/
-examples/ 
 examples/volumes/
 examples/notebooks/results
 materials/
@@ -13,6 +12,7 @@ test/
 *.bmp
 *.tiff
 *.gif
+*.pt
 .ipynb_checkpoints/
 __pycache__/
 *.pyc
