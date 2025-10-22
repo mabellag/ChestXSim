@@ -1,11 +1,42 @@
-results/
-inputs/
-examples/volumes/
-examples/notebooks/results
-materials/
-materials/executables
-materials/models
-test/
+# =============================
+# Ignore all contents inside folders, but keep the folder itself
+# =============================
+
+# results folder (keep folder, ignore files)
+results/*
+!results/.gitkeep
+
+# inputs folder
+inputs/*
+!inputs/.gitkeep
+
+# materials folder and subfolders
+materials/*
+!materials/.gitkeep
+materials/executables/*
+!materials/executables/.gitkeep
+materials/models/*
+!materials/models/.gitkeep
+materials/mac/*
+!materials/mac/.gitkeep
+materials/spectra/*
+!materials/spectra/.gitkeep
+
+
+# examples folders
+examples/volumes/*
+!examples/volumes/.gitkeep
+examples/notebooks/results/*
+!examples/notebooks/results/.gitkeep
+
+
+# test folder
+test/*
+!test/.gitkeep
+
+# =============================
+# Ignore specific file types globally
+# =============================
 *.png
 *.jpg
 *.jpeg
@@ -13,6 +44,10 @@ test/
 *.tiff
 *.gif
 *.pt
+
+# =============================
+# Python & Jupyter caches
+# =============================
 .ipynb_checkpoints/
 __pycache__/
 *.pyc
