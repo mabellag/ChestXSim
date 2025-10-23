@@ -206,7 +206,29 @@ class FDK:
             # if start < 0: start = 0
             # if stop  < start: stop = start  # avoid empty/negative
             result = result[:, :, start:stop]
-        
+
+            # add cropped air if present (air croped was saved as {'axis': a, 'crop_indices': [lo, hi]})
+            # air_info = None
+            # air_info = md.step_outputs["AirCropper"]
+            # if air_info is not None:
+            #     axis_air = int(air_info["axis"])
+            #     lo, hi = air_info["crop_indices"] 
+                
+            #     left_mm  = lo * init_vx[axis_air]
+            #     right_mm = (init_shape[axis_air] - hi) * init_vx[axis_air]
+
+            #     pad_left  = int((left_mm  / self.reco_vx[axis_air]))
+            #     pad_right = int((right_mm / self.reco_vx[axis_air]))
+            #     N = result.ndim  # likely 4 (X,Y,Z,C)
+            #     pad_spec = [(0, 0)] * N
+            #     pad_spec[axis_air] = (pad_left, pad_right)
+
+            #     # pad with zeros (air)
+            #     result = xp.pad(result, pad_spec, mode="constant", constant_values=0)
+            #     pad_spec[axis_air] = (pad_left, pad_right)
+            #     result = xp.pad(result, pad_spec, mode="constant", constant_values=0)
+
+
         md.dim = result.shape
         md.voxel_size = self.reco_vx
         md.step_outputs[self.__class__.__name__] = {

@@ -1,7 +1,6 @@
 try:
     import cupy as cp
     from cupyx.scipy import ndimage as ndi
-    from cupyx.scipy import interpolate
     
     if cp.cuda.is_available():
         xp = cp

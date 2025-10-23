@@ -2,11 +2,10 @@
 name = "chestxsim"
 version = "0.1.0"
 description = "DCT simulation pipeline for chest volumes"
-authors = [{ name = "Your your", email = "your@email.com" }]
 requires-python = ">=3.10"
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

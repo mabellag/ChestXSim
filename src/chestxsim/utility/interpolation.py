@@ -1,12 +1,14 @@
 from typing import Tuple
-from chestxsim.device_utils import *
-from chestxsim.data_containers import *
+from chestxsim.core import xp, volumeData 
+from scipy import interpolate  # this works on cpu 
 import copy
-
 
 def interpolate_funct(img, original_voxel_size, new_voxel_size, target_nb_pixels):
     # Original volume shape and voxel size
     original_shape = img.shape
+    # change backend - replace this function for equivalent interpolator in gpu 
+    import numpy as np
+    xp = np
 
     # Create the original grid
     x = xp.linspace(-1 / 2 * (original_shape[0] - 1) * original_voxel_size[0], 1 / 2 * (
@@ -24,7 +26,7 @@ def interpolate_funct(img, original_voxel_size, new_voxel_size, target_nb_pixels
     z_new = xp.linspace(-1 / 2 * (target_nb_pixels[2] - 1) * new_voxel_size[2], 1 / 2 * (
         target_nb_pixels[2] - 1) * new_voxel_size[2], target_nb_pixels[2])
 
-    # Create the interpolation function with cubic interpolation
+    # Create the interpolation function with  interpolation
     interp_function = interpolate.RegularGridInterpolator(
         (x, y, z), img, method='linear', bounds_error=False, fill_value=0)
 
@@ -43,6 +45,8 @@ def interpolate_funct(img, original_voxel_size, new_voxel_size, target_nb_pixels
     print("Resampled shape:", resampled_shape)
     return resampled_volume
 
+
+
 class Interpolator():
     def __init__(
             self, 
@@ -56,7 +60,22 @@ class Interpolator():
         volume = input_volume.volume
         metadata = copy.deepcopy(input_volume.metadata)
 
-        processed_volume = interpolate_funct(volume, 
+        # --- Ensure volume is 3D :: interpolator from scipy work on cpu 
+        if volume.ndim == 4:
+            # If last dim is a singleton (common in chestxsim volumes)
+            if volume.shape[-1] == 1:
+                volume = volume[..., 0]
+            else:
+                raise ValueError(
+                    f"Interpolator expects a 3D volume, but got shape {volume.shape} "
+                    "with multiple channels."
+                )
+        elif volume.ndim != 3:
+            raise ValueError(
+                f"Interpolator expects a 3D volume, but got {volume.ndim}D input."
+            )
+
+        processed_volume = interpolate_funct(volume.get(),  
                                              metadata.voxel_size, 
                                              self.target_voxel_size, 
                                              self.target_size)

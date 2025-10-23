@@ -1,2 +1,3 @@
 from .visualization import plot
-__all__ = ["plot"]
+from .interpolation import Interpolator
+__all__ = ["plot", "Interpolator"]
