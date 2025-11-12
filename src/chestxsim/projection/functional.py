@@ -58,17 +58,6 @@ def clean_gpu(fn):
 def project(volume, opt, vol_vx):
     return opt.project(volume, vol_vx)
 
-
-# def get_tissue_macs(tissue_type:list[str], physics:Physics):
-#     """ get the macs for the corresponfing tissue  """
-#     MAC = xp.zeros((len(physics.spectrum), len(tissue_type))) 
-#     for i,tissue in enumerate(tissue_type):
-#         mac_data = physics.mac_data(tissue)
-#         MAC[:,i] =  mac_data[:len(physics.spectrum)]
-#     return MAC # (E_ENERGY, T) 
-
-
-
 def build_mac_matrix(E_ENERGY: int, tissue_types: list[str], macs: MACRepo) -> Any:
     """
     Build a MAC (Mass Attenuation Coefficient) matrix for the specified tissues.
@@ -235,10 +224,10 @@ def get_distance_map(geometry: Geometry)-> Any:
     xp.sqrt(x_grid**2 + SDD**2 + dz**2)
     """
     if isinstance(geometry,TomoGeometry):
-        W, H = geometry.detector_size[0]//geometry.binning_proj, geometry.detector_size[1]//geometry.binning_proj
+        W, H = geometry.W, geometry.H
         SDD = geometry.SDD
-        nprojs = geometry.nstep +1
-        z_step = geometry.step
+        nprojs = geometry.nprojs
+        z_step = geometry.step_mm
 
 
         distance_map = xp.zeros((H, W, nprojs))

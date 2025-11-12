@@ -6,7 +6,10 @@ import copy
 
 import inspect
 
-
+__all__= [
+    "BackProjector", 
+    "FDK"
+]
 
 # class SampleProjections():
 #     def __init__(self,
@@ -151,8 +154,8 @@ class FDK:
         md = copy.deepcopy(ct_data.metadata)
         if self.match_input:
             # try : raise an error if not available data get original mm from metadata 
-            init_shape = md.find("ct_orig_shape")
-            init_vx    = md.find("ct_orig_vx")
+            init_shape = md.find("ct_dim")
+            init_vx    = md.find("ct_vx")
             up_mm, down_mm = md.find("extension_mm")
 
             reco_dim_mm = [
@@ -163,21 +166,14 @@ class FDK:
         
             self.reco_dim_mm = tuple(reco_dim_mm)
                 
-        print("mm", self.reco_dim_mm)
 
         reco_dim = F.resolve_reco_dim(self.reco_dim_mm, self.reco_dim_px, self.reco_vx, self.opt.geometry)
-        print("reco_dim px",reco_dim)
-        
-        
-        # print("fdk", volume[:3].shape)
-        # volume = xp.squeeze(volume, axis=-1)
-       
-        # print(self.opt.DOD)
-        if self.opt.DOD is None:
+        if self.opt.geometry.DOD is None:
             try:
-                self.opt.DOD = self.opt.set_DOD(md.find('ct_orig_shape'), md.find('ct_orig_vx'))
+                self.opt.geometry.fit_to_volume(md.find('ct_orig_shape'), md.find('ct_orig_vx'))
             except:
-                self.opt.DOD = self.opt.bucky + 0.35 # default callback average obese patient ()
+                self.opt.geometry.DOD = self.opt.bucky + 0.35 # default callback average obese patient ()
+
 
         result = F.fdk(
             volume,
@@ -198,13 +194,10 @@ class FDK:
             # convert mm -> slices **in reconstructed grid**
             n_up   = int(up_mm   / self.reco_vx[2])   # or math.ceil(...) but match extender rounding
             n_down = int(down_mm / self.reco_vx[2])
-            print(n_up, n_down)
 
             Z = result.shape[2]
             start = n_up
             stop  = Z - n_down
-            # if start < 0: start = 0
-            # if stop  < start: stop = start  # avoid empty/negative
             result = result[:, :, start:stop]
 
             # add cropped air if present (air croped was saved as {'axis': a, 'crop_indices': [lo, hi]})

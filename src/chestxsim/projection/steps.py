@@ -1,11 +1,16 @@
 import copy 
-from chestxsim.core.data_containers import volumeData, SourceSpectrum, MACRepo
+from chestxsim.core import (
+    volumeData, SourceSpectrum, MACRepo, create_geometry_from_id,GEOMETRY_ID )
 from chestxsim.wrappers.astra import *
 from chestxsim.utility.ops_utils import apply_channelwise
 from . import functional as F
 from typing import Any 
 
-__all__ = ["Projection", "PhysicsEffect", "NoiseEffect"]
+__all__ = [
+    "Projection", 
+    "PhysicsEffect", 
+    "NoiseEffect"
+]
 
 def ensure_4d(volume: Any) -> Any:
     """ Converts 3D volume (H,W,D) to 4D volume (H,W,D,T) where T=1 """
@@ -52,12 +57,15 @@ class Projection:
             volume = xp.sum(volume, axis=-1,keepdims=True)
 
         processed_volume = F.project(volume, self.opt, metadata.voxel_size)  
-        print(self.opt.geometry.to_dict())
-
         metadata.dim = processed_volume.shape
-        metadata.voxel_size = None
+        metadata.voxel_size = [self.opt.geometry.pxW, self.opt.geometry.pxH]
         metadata.step_outputs[self.__class__.__name__] = {
             "kernel": type(self.opt).__name__, 
+            "id": next(
+                (name for name, cls in GEOMETRY_ID.items()
+                if isinstance(self.opt.geometry, cls)),
+                None
+        ),
             "geometry": self.opt.geometry.to_dict(),
         }
         return  volumeData(volume=processed_volume, metadata=metadata)
@@ -122,7 +130,7 @@ class PhysicsEffect:
         
         # print here:
         for i, tissue in enumerate(tissue_types):
-            print(f"Tissue found: {tissue} at channel {i}")
+            print(f"[PhysicsEffect] Tissue: {tissue} at channel {i}")
 
         # Get energy-dependent mass attenuation coefficients
         _macRepo = MACRepo()
@@ -132,13 +140,17 @@ class PhysicsEffect:
         if self.apply_ISL:
             # get distance map from geometry 
             # if no projection key say user to add geometry to projection metadata 
-            geometry= TomoGeometry.from_dict(metadata.step_outputs["Projection"].get("geometry"))
+            # geometry= TomoGeometry.from_dict(metadata.step_outputs["Projection"].get("geometry"))
+            geometry = create_geometry_from_id(
+                metadata.step_outputs["Projection"].get("id"),
+                **metadata.step_outputs["Projection"].get("geometry")
+            )
             
             distance_map = F.get_distance_map(geometry)
             I0_map =  self.source.I0 * (geometry.SDD / distance_map)**2
             processed_volume = F.energyProjection(
                 volume,
-                metadata.find("ct_orig_vx"), # ESTO NO LO PUEDO DEJAR ASI !!
+                metadata.find("ct_vx"),
                 self.source.I0,
                 self.source.spectrum,
                 mac_matrix,
@@ -147,7 +159,7 @@ class PhysicsEffect:
         else:
             processed_volume = F.energyProjection(
                 volume,
-                metadata.find("ct_orig_vx"),
+                metadata.find("ct_vx"),
                 self.source.I0,
                 self.source.spectrum,
                 mac_matrix,
@@ -260,7 +272,10 @@ class NoiseEffect: # just in case want to add noise to just geometric projection
                 elif phys_data.get("ISL", False):
                     geometry_info = step_outputs.get("Projection", {}).get("geometry")
                     if geometry_info is not None:
-                        geometry = TomoGeometry.from_dict(geometry_info)
+                        geometry = create_geometry_from_id(
+                            metadata.step_outputs["Projection"].get("id"),
+                            **geometry_info,
+                        )
                         distance_map = F.get_distance_map(geometry)
                         I0_map = phys_data["I0"] / (distance_map ** 2)
                         flood = I0_map + gaussian[:, :, None]
@@ -277,104 +292,6 @@ class NoiseEffect: # just in case want to add noise to just geometric projection
             processed_volume = -xp.log(processed_volume)
         
         return processed_volume 
-    
-
-
-         
-
-# class NoiseModel:
-#     def __init__(self, 
-#                 mu_dark: Optional[float]= None,
-#                 sigma_dark: Optional[float]= None,
-#                 dark_volume: Optional[Any]= None,
-#                 inhomgeneities_map: Optional[Any]= None,
-#                 apply_flood_correction:bool=True,
-#                 flood: Optional[Any] = None,
-#                 log: bool= True
-#                 ):
-        
-#         self.mu_dark = mu_dark
-#         self.sigma_dark = sigma_dark
-#         self.dark_volume = dark_volume
-#         self.inhomgeneities_map = inhomgeneities_map
-#         self.apply_flood_correction = apply_flood_correction
-#         self.flood = flood
-#         self.log = log
-
-
-#     def __call__(self, ct_data:volumeData) -> volumeData:
-#         volume = ct_data.volume
-#         metadata = copy.deepcopy(ct_data.metadata)
-
-#     def _apply(self, volume, metadata)
-
-#         poisson= F.get_Poisson_component(volume)
-      
-#         if self.mu_dark is not None and self.sigma_dark is not None:
-#             gaussian = F.get_Gaussian_component((volume.shape[0],volume.shape[1]),
-#                                                  self.mu_dark, self.sigma_dark)
-        
-#         elif self.dark_volume is not None:
-#             gaussian = self.dark_volume
-        
-#         else:
-#             gaussian = xp.zeros((volume.shape[0], volume.shape[1]))
-        
-        
-#         if self.inhomgeneities_map is not None:
-#             inhomgeneities_map = self.inhomgeneities_map
-
-#         else:
-#             inhomgeneities_map = xp.ones((volume.shape[0],volume.shape[1]))
-          
-#         processed_volume = poisson * inhomgeneities_map[:,:,None] + gaussian[:,:,None]
-#         print("Poisson stats:", poisson.mean(), poisson.std())
-#         print("Gaussian stats:", gaussian.mean(), gaussian.std())
-
-#         if self.apply_flood_correction:
-#             last_key =list(metadata.step_outputs.keys())[-1]
-#             # GET FLOOD
-#             if self.flood is not None:
-#                 # chequear si el flood es un volume o una imagen sola
-#                 flood = self.flood[:,:,None]
-            
-#             elif metadata.step_outputs[last_key]["ISL"]:
-#                 print("0")
-#                 geometry = TomoGeometry.from_dict(metadata.step_outputs["Projection"].get("geometry"))
-#                 distance_map = F.get_distance_map(geometry)
-#                 I0_map =   metadata.step_outputs[last_key]["I0"] /(distance_map**2)
-#                 # flood = F.get_Poisson_component(I0_map) + gaussian[:,:, None]
-#                 flood = I0_map + gaussian[:,:,None]
-            
-#             else:
-#                 I0_map = xp.ones_like(processed_volume)*metadata.step_outputs[last_key]["I0"] 
-#                 flood = I0_map + gaussian[:,:, None]
-
-#             mu_dark = xp.zeros(processed_volume.shape)*self.mu_dark
-
-#             # processed_volume = (processed_volume - mu_dark) / (flood - mu_dark)
-#             processed_volume = (processed_volume - mu_dark) / (flood - mu_dark)
-        
-#         if self.log:
-#             processed_volume = -xp.log(processed_volume)
-
-#         # Update metadata
-#         metadata.step_outputs[self.__class__.__name__] =({
-#             "mu_dark": self.mu_dark,
-#             "sigma_dark":  self.sigma_dark,
-#             "flood_corrected": self.apply_flood_correction,
-#             "log_applied": self.log,
-#             "inhomogeneities": True if self.inhomgeneities_map is not None else False
-        
-#         })
-
-#         return volumeData(volume=processed_volume, metadata=metadata)
-
-                                    
-
-
-        
-        
     
         
     

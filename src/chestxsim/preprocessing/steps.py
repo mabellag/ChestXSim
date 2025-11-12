@@ -43,7 +43,7 @@ class BedRemover:
             )
             
             save_dir = Path(RESULTS_DIR) / "CT_bed_mask" 
-            print(f"[INFO] Saving mask to: {save_dir/filename}")
+            print(f"[BedRemover] Saving mask to: {save_dir/filename}")
             save_dir.mkdir(parents=True, exist_ok=True)
             saver.save_volume(mask, save_dir, filename)
 
@@ -82,10 +82,7 @@ class AirCropper:
         else:
             raise ValueError(f"Invalid axis {self.axis} for 4D volume. Must be 0, 1, or 2.")
 
-        # metadata.Preprocessing.update({
-        #     "dim": processed_volume.shape,
-        #     "crop_vals_air": 
-        # })
+      
         metadata.dim = processed_volume.shape
         metadata.step_outputs[self.__class__.__name__] = {
             "axis": self.axis,
@@ -261,7 +258,7 @@ class TissueSegmenter:
                 save_dir = Path(RESULTS_DIR) / "CT_tissue_masks" / method
                 save_dir.mkdir(parents=True, exist_ok=True)
                 full_path = save_dir / filename
-                print(f"[INFO] Saving {tissue_type} mask ({method}) to: {full_path}")
+                print(f"[TissueSegmenter] Saving {tissue_type} mask ({method}) to: {full_path}")
                 
                 saver.save_volume(mask, save_dir, filename)
 
