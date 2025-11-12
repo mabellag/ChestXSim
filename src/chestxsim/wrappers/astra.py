@@ -1,12 +1,14 @@
-
 import astra
-from chestxsim.utility import *
+# from chestxsim.utility import *
 import numpy as np 
-from typing import Optional, List, Tuple, Any
-from chestxsim.core.geometries import TomoGeometry, CBCTGeometry
+from typing import Optional, Tuple, Dict, Type
+from chestxsim.core.geometries import Geometry
 from chestxsim.core.device import xp
-import cupy as cp
+from chestxsim.wrappers.base import GeometricOp, OpMod
+# import cupy as cp
 from enum import Enum
+from abc import ABC, abstractmethod
+
 
 """
     NOTES: 
@@ -42,486 +44,334 @@ from enum import Enum
      
 """
 
-class GeometryMode(Enum):
-    CBCT3D = "cbct-3d"   # cone-beam volume <-> FDK
-    CBCT2D = "cbct-2d"   # per-slice fan-beam or parallel <-> FBP
+class Backend(Enum):
+    GPU = "gpu"
+    CPU = "cpu"
 
-class Role(Enum):
-    VOL  = "-vol"
-    SINO = "-sino"    
+# # Customizable behaviour points using hooks
+## composition over ineritance - we pass the hook rather that subclassing whole operator for very small variants 
+class ASTRAHooks:
+    def __init__(self, backend: Backend, is3d: bool):
+        self.backend = backend
+        self.is3d = is3d
 
-CFG_KEYS = {
-    (Role.VOL,  Role.SINO): dict(in_key='VolumeDataId',        out_key='ProjectionDataId'),
-    (Role.SINO, Role.VOL ): dict(in_key='ProjectionDataId',    out_key='ReconstructionDataId'),
-}
+    #--- algorithm selection ---
+    def forward_algo(self) -> str:
+        if self.is3d:
+            return 'FP3D_CUDA' # only 3d in gpu backend
+        return 'FP_CUDA' if self.backend == Backend.GPU else 'FP'
 
-# =======================
-# BASE OPERATOR 
-# =======================
-class Astra_OP:
-    """
-    Astra simulation base object.
-    It implementsa a generic CUDA runner for projection, backprojection and fdk. 
-    """
-    def __init__(self):
-        self.proj_size: List[int] = [1, 1] # number of pixels in the detector [width, height]
-        self.px_size: List[float] = [1, 1] # size of pixels in the detector [width, height]
-        self.nprojs: int 
-      
-       
-    def create_vol_geom(self, vol_dim: Tuple[int, int, int], vx_size: Tuple[float, float, float]):
-        """
-        Create ASTRA 3D volume geometry. 
-      
-        vol_dim (tuple): Volume dimensions in voxels [x, y, z]
-        vx_size (tuple): Voxel size in mm [x, y, z]
+    def backproj_algo(self) -> str:
+        if self.is3d:
+            return 'BP3D_CUDA'  # only 3d in gpu backend
+        return 'BP_CUDA' if self.backend == Backend.GPU else 'BP'
+
+    def recon_algo(self, astra_algo_id) -> str:
+        # intended for any astra algorithm 
+        if not isinstance(astra_algo_id, str) or not astra_algo_id:
+            raise ValueError("Algorithm id must be a non-empty string.")
         
-        Returns:
-        ASTRA volume geometry
-        """
-
-        # ASTRA expects [rows, cols, slices] = [y, x, z] for geometry creation
-        # But our volume is [x, y, z], so we need to swap x and y
-        return astra.create_vol_geom(
-            vol_dim[1], vol_dim[0], vol_dim[2],  # y, x, z dimensions
-            -vol_dim[0] * vx_size[0] / 2, vol_dim[0] * vx_size[0] / 2,  # x bounds
-            -vol_dim[1] * vx_size[1] / 2, vol_dim[1] * vx_size[1] / 2,  # y bounds
-            -vol_dim[2] * vx_size[2] / 2, vol_dim[2] * vx_size[2] / 2)  # z bounds
-
-    
-    def create_proj_geom(self):
-        """
-        Create ASTRA projection geometry 3D.
-        Implemented by subclases 
-        """
-        raise NotImplementedError
-    
-    def _run_astra_CUDA(
-        self,
-        algorithm_id: str,
-        input_astra,                 # np.ndarray or cp.ndarray; already in ASTRA layout
-        role: Role,                  # Role.VOL (input is volume) or Role.SINO (input is sinogram)
-        vol_geom,                    # ASTRA volume geometry
-        proj_geom,                   # ASTRA projection geometry
-        out_shape_astra: tuple,      # output shape in ASTRA layout
-        is3d: bool = True,
-        extra_cfg: dict | None = None,
-    ):
-        """
-        Minimal ASTRA  CUDA runner.
-
-        - Assumes input is already in ASTRA layout (see table above).
-        - Allocates output (NumPy), links input/output, wires cfg keys from `CFG_KEYS`.
-        - Adds ProjectorId **only for 3D** CUDA algorithms.
-        - Runs and returns output as CuPy array.
-        """
+        # backend sanity check
+        id_upper = astra_algo_id.upper()
+        if "CUDA" in id_upper and self.backend != Backend.GPU:
+            raise ValueError(f"Selected backend={self.backend.name} but algorithm '{astra_algo_id}' requires GPU.")
         
-        use_numpy_in  = isinstance(input_astra, np.ndarray)
-        if not use_numpy_in:
-            input_np = cp.asnumpy(input_astra).astype(np.float32, copy=False)
-        else:
-            input_np = input_astra.astype(np.float32, copy=False)
+        # dimension sanity checkk
+        is_3d_algo = ("3D" in id_upper) or (id_upper.startswith("FDK")) 
+        if is_3d_algo and not self.is3d:
+            raise ValueError(f"Algorithm '{astra_algo_id}' is 3D but geometry is 2D.")
+        if (not is_3d_algo) and self.is3d and id_upper.startswith("FBP"):
+            raise ValueError(f"Algorithm '{astra_algo_id}' is 2D (FBP) but geometry is 3D.")
+        
+        return astra_algo_id
 
-        out_np = np.zeros(out_shape_astra, dtype=np.float32)
 
-        # Pick correct ASTRA link group 
-        if is3d:
-            if role is Role.VOL:
-                in_dtype,  in_geom  = '-vol',    vol_geom
-                out_dtype, out_geom = '-proj3d', proj_geom
-            else:  # role is Role.SINO (we're providing a 3D sinogram)
-                in_dtype,  in_geom  = '-proj3d', proj_geom
-                out_dtype, out_geom = '-vol',    vol_geom
+    # --- shapes/layouts baked-in ---
+    def proj_shape_astra(self,geometry: Geometry) -> Tuple[int, ...]:
+        nA = geometry.nprojs
+        W = geometry.W
+        if self.is3d:
+            H = geometry.H
+            return (H, nA, W) 
+        return (nA, W)
+
+    def vol_shape_astra(self, dim_xyz: Tuple[int, ...]) -> Tuple[int, ...]:
+        if self.is3d:
+            X, Y, Z = dim_xyz
+            return (Z, Y, X)
+        X, Y = dim_xyz
+        return (Y, X)
+
+    def to_astra_vol(self, v: xp.ndarray) -> xp.ndarray:
+        v = v.astype(xp.float32, copy=False)
+        return xp.swapaxes(v, 0, 2) if self.is3d else xp.swapaxes(v, 0, 1)
+
+    def from_astra_vol(self, v: xp.ndarray) -> xp.ndarray:
+        return xp.swapaxes(v, 0, 2) if self.is3d else xp.swapaxes(v, 0, 1)
+
+    def to_astra_sino(self, s: xp.ndarray) -> xp.ndarray:
+        if self.is3d:
+            return xp.swapaxes(xp.swapaxes(s, 0, 1), 1, 2).astype(xp.float32, copy=False)
+        return s.astype(xp.float32, copy=False) 
+
+    def from_astra_sino(self, s: xp.ndarray) -> xp.ndarray:
+        return xp.swapaxes(xp.swapaxes(s, 1, 2), 0, 1) if self.is3d else s
+
+    # --- ASTRA data link + kinds baked-in ---
+    def in_kind(self, role_vol: bool) -> str:
+        return '-vol' if role_vol else ('-proj3d' if self.is3d else '-sino')
+
+    def out_kind(self, role_vol: bool) -> str:
+        return ('-proj3d' if self.is3d else '-sino') if role_vol else '-vol'
+    
+    @property
+    def link_api(self):
+        return astra.data3d if self.is3d else astra.data2d
+    
+    @property
+    def proj_name(self):
+        return None 
+
+
+class Astra_OP(GeometricOp, ABC):
+    """
+    Public API (dimension-aware via hooks):
+      - project(vol_xyz, vx_xyz)
+      - backproject(sino, reco_dim_xyz, reco_vx_xyz)
+      - reconstruct(sino, reco_dim_xyz, reco_vx_xyz, filt=None)
+
+    Base handles:
+      • 2D vs 3D volume geometry box (since it's dimension-only)
+      • common ASTRA run logic and array layouts via hooks
+
+    Concrete ops handle:
+      • create_proj_geom() (beam/modality-specific)
+    """
+    def __init__(self, geometry: Geometry, backend: Backend = Backend.GPU):
+        super().__init__(geometry)  
+        self.backend = backend
+        self.hooks =  ASTRAHooks(backend=backend, is3d=geometry.is3d)
+
+    # ----- Public API ----
+    def project(self, vol_xyz: xp.ndarray, vx_xyz: Tuple[float, ...]):
+        """Forward projection."""
+        in_arr, vol_geom, proj_geom = self._prep_forward(vol_xyz, vx_xyz)
+        out_shape = self.hooks.proj_shape_astra(self.geometry)
+        algo = self.hooks.forward_algo()
+        out = self._run(algo, in_arr, vol_geom, proj_geom,
+                             out_shape, role_vol= True)
+        return self.hooks.from_astra_sino(out)
+
+    def backproject(self, sino, reco_dim_xyz: Tuple[int, ...], reco_vx_xyz: Tuple[float, ...]):
+        """Adjoint/backprojection."""
+        in_arr, vol_geom, proj_geom = self._prep_backward(sino, reco_dim_xyz, reco_vx_xyz)
+        out_shape = self.hooks.vol_shape_astra(reco_dim_xyz)
+        algo = self.hooks.backproj_algo()
+        out = self._run(algo, in_arr, vol_geom, proj_geom,
+                             out_shape, role_vol=False)
+        return self.hooks.from_astra_vol(out)
+
+    def reconstruct(self, 
+                    method: str, # raw ASRTA algorithm name
+                    sino, 
+                    reco_dim_xyz, 
+                    reco_vx_xyz, 
+                    options: Optional[dict] = None, # goes into cfg['option']
+                    iterations: Optional[int] = None
+                    ):
+        """Reconstruction (FDK or FBP depending on subclass)."""
+        in_arr, vol_geom, proj_geom = self._prep_backward(sino, reco_dim_xyz, reco_vx_xyz)
+        out_shape = self.hooks.vol_shape_astra(reco_dim_xyz)
+        algo = self.hooks.recon_algo(method)
+        cfg_extra = {}
+        if options:
+            cfg_extra['option'] = options
+
+        out = self._run(algo, in_arr, vol_geom, proj_geom, out_shape, role_vol=False, extra_cfg=cfg_extra,  
+                        run_kwargs={'iterations': iterations} if iterations is not None else None)
+        return self.hooks.from_astra_vol(out)
+    
+    # --- create ASTRA volume geometry 
+    def create_vol_geom(self, dim_xyz: Tuple[int, ...], vx_xyz: Tuple[float, ...]) -> int:
+        if self.geometry.is3d:
+            X, Y, Z = map(int, dim_xyz); vx, vy, vz = map(float, vx_xyz)
+            return astra.create_vol_geom(
+                Y, X, Z,
+                -X*vx/2, X*vx/2,
+                -Y*vy/2, Y*vy/2,
+                -Z*vz/2, Z*vz/2
+            )
         else:
-            if role is Role.VOL:
-                in_dtype,  in_geom  = '-vol',  vol_geom
-                out_dtype, out_geom = '-sino', proj_geom
-            else:
-                in_dtype,  in_geom  = '-sino', proj_geom
-                out_dtype, out_geom = '-vol',  vol_geom
-        # Link
-        link = astra.data3d if is3d else astra.data2d
-        in_id  = link.link(in_dtype,  in_geom,  input_np)
-        out_id = link.link(out_dtype, out_geom, out_np)
-        # Config
+            X, Y = map(int, dim_xyz); vx, vy = map(float, vx_xyz)
+            return astra.create_vol_geom(
+                Y, X,
+                -X*vx/2, X*vx/2,
+                -Y*vy/2, Y*vy/2
+            )
+    
+    # --- create ASTRA projection geometry  (override by modality)
+    @abstractmethod
+    def create_proj_geom(self) -> int:
+        raise NotImplementedError("Subclasses must implement create_proj_geom().")
+    
+     ## --- prepare volumes in ASTRA layout using hooks 
+    def _prep_forward(self, vol_xyz, vx_xyz):
+        if hasattr(self.geometry, "fit_to_volume"):
+            self.geometry.fit_to_volume(vol_xyz.shape, vx_xyz)
+        
+        vol_geom  = self.create_vol_geom(vol_xyz.shape, vx_xyz)
+        proj_geom = self.create_proj_geom()
+        in_arr    = self.hooks.to_astra_vol(vol_xyz)
+        return in_arr, vol_geom, proj_geom
+
+    def _prep_backward(self, sino, reco_dim_xyz, reco_vx_xyz):
+        #  if hasattr(self.geometry, "fit_to_volume"):
+        #     self.geometry.fit_to_volume(vol_xyz.shape, vx_xyz)
+        vol_geom  = self.create_vol_geom(reco_dim_xyz, reco_vx_xyz)
+        proj_geom = self.create_proj_geom()
+        in_arr    = self.hooks.to_astra_sino(sino)
+        return in_arr, vol_geom, proj_geom
+    
+    # --- unifed ASTRA runner 
+    def _run(self, 
+            algorithm_id: str, 
+            input_astra, 
+            vol_geom, 
+            proj_geom,
+            out_shape_astra, 
+            role_vol: bool,  
+            extra_cfg: dict | None = None,
+            run_kwargs: dict | None = None
+            ) -> xp.ndarray:
+        
+        """Minimal ASTRA executor"""
+        link = self.hooks.link_api
+        in_kind  = self.hooks.in_kind(role_vol)
+        out_kind = self.hooks.out_kind(role_vol)
+        proj_name = self.hooks.proj_name
+
+        input_np = xp.asnumpy(input_astra) if isinstance(input_astra, xp.ndarray) else input_astra
+        out_np   = np.zeros(out_shape_astra, dtype=np.float32)
+
+        in_id  = link.link(in_kind,  vol_geom if role_vol else proj_geom, input_np)
+        out_id = link.link(out_kind, proj_geom if role_vol else vol_geom, out_np)
+
         cfg = astra.astra_dict(algorithm_id)
-        keys = CFG_KEYS[(role, Role.SINO if role is Role.VOL else Role.VOL)]
-        cfg[keys['in_key']]  = in_id
-        cfg[keys['out_key']] = out_id
-        cfg['ProjectorId'] = astra.create_projector('cuda3d' if is3d else 'cuda', proj_geom, vol_geom)
+        if role_vol:
+            cfg['VolumeDataId']     = in_id
+            cfg['ProjectionDataId'] = out_id
+        
+        else:
+            cfg['ProjectionDataId']     = in_id
+            cfg['ReconstructionDataId'] = out_id
+
+        if proj_name is not None:
+            cfg['ProjectorId'] = astra.create_projector(proj_name, proj_geom, vol_geom)
+        
         if extra_cfg:
             cfg.update(extra_cfg)
 
         alg_id = astra.algorithm.create(cfg)
         try:
-            astra.algorithm.run(alg_id)
+            if run_kwargs:
+                astra.algorithm.run(alg_id, **run_kwargs)  # e.g. iterations=100
+            else:
+                astra.algorithm.run(alg_id)
         finally:
             astra.algorithm.delete(alg_id)
-            link.delete(in_id)
-            link.delete(out_id)
+            link.delete(in_id); link.delete(out_id)
 
-        return cp.asarray(out_np)
-
-    # -- 3D high-level-
-    def project(self, input_volume: cp.ndarray, vx_size: Tuple[float, float, float], is3d= True) -> cp.ndarray:
-        """
-        Compute forward projection using ASTRA with GPU.
-
-        Parameters:
-        input_volume (cp.ndarray): 3D input volume, shape [X, Y, Z]
-        vx_size (tuple): Voxel size in mm (vx, vy, vz)
-
-        Returns:
-        cp.ndarray: 3D sinogram, shape [W, H, Angles]
-        """
-        if self.DOD is None:
-            self.DOD = self.set_DOD(input_volume.shape, vx_size)
-
-        # Create ASTRA volume and projection geometry
-        vol_geom = self.create_vol_geom(input_volume.shape, vx_size)
-        proj_geom = self.create_proj_geom()
-        
-        # Swap from [X, Y, Z] to [Z, Y, X] as expected by ASTRA and Link to 
-        input_volume_astra = cp.swapaxes(input_volume, 0, 2).astype(cp.float32).copy()
-        out_shape_astra = (self.proj_size[1], self.nprojs, self.proj_size[0]) # (H,A,W)
-        sinogram_astra = self._run_astra_CUDA("FP3D_CUDA", 
-                                              input_volume_astra,
-                                              Role.VOL,
-                                              vol_geom, proj_geom, 
-                                              out_shape_astra,
-                                              is3d)
-        
-        return cp.swapaxes(cp.swapaxes(sinogram_astra, 0, 2), 1, 2) # go back to chestxsim layout 
+        return xp.asarray(out_np)
     
-    def fdk(self, proj_data: cp.ndarray, reco_dim, reco_vx_size, is3d=True, **kwargs) -> cp.ndarray:
-        sino = cp.swapaxes(cp.swapaxes(proj_data, 0, 1), 1, 2).astype(cp.float32, copy=False)
-        vol_geom  = self.create_vol_geom(reco_dim, reco_vx_size)
-        proj_geom = self.create_proj_geom()
-        out_shape_astra = (reco_dim[2], reco_dim[1], reco_dim[0])  # (Z,Y,X)
-
-        reco = self._run_astra_CUDA("FDK_CUDA", sino, Role.SINO, vol_geom, proj_geom, out_shape_astra, is3d=True)
-        return cp.swapaxes(reco, 0, 2)
-
-    def backproject(self, proj_data: cp.ndarray, reco_dim, reco_vx_size, is3d=True, **kwargs) -> cp.ndarray:
-        sino = cp.swapaxes(cp.swapaxes(proj_data, 0, 1), 1, 2).astype(cp.float32, copy=False)
-        vol_geom  = self.create_vol_geom(reco_dim, reco_vx_size)
-        proj_geom = self.create_proj_geom()
-        out_shape_astra = (reco_dim[2], reco_dim[1], reco_dim[0])  # (Z,Y,X)
-
-        reco = self._run_astra_CUDA("BP3D_CUDA", sino, Role.SINO, vol_geom, proj_geom, out_shape_astra, is3d=True)
-        return cp.swapaxes(reco, 0, 2)
-
-           
-class Astra_Tomo(Astra_OP):
-    r"""Tomosynthesis simulation object.
-    Can be used to execute Astra projection and backprojection operations.
-    It can either be used by inputing numpy arrays
-    with the methods forward_operator and adjoint_operator.
+     
+# -- Concrete operators per modality --
+class ASTRA_Tomo(Astra_OP):
     """
-
-    def __init__(self, geometry: Optional[TomoGeometry] = None):
-        super().__init__()
-        
-        if geometry is not None:
-            self.configure_from_geometry(geometry)
-        else:
-            # Default values if no geometry provided
-            self.SDD: float = 1 # Source to detector distance in mm
-            self.DOD: Optional[float] = None # Detector object distance in mm (will be calculated or set)
-            self.step: float = 1 # Step size for tomosynthesis movement in mm
-            
-            self.bucky: float = 1  # Size of the bucky detector in mm
-            # self.angles: Any = xp.array([0])  # Projection angles (default is single angle)
-            
-
-    # def _get_norm_weight(self):
-    #     return 1/self.nprojs
-
-    def set_DOD(self, ct_dim: Tuple[int, int, int], voxel_size: Tuple[float, float, float]) -> float:
-        """Compute the detector-object distance based on volume dimensions.
-        
-        Parameters:
-        ct_dim (tuple): Volume dimensions in voxels [x, y, z]
-        voxel_size (tuple): Voxel size in mm [x, y, z]
-        
-        Returns:
-        float: Calculated detector-object distance
-        """
-        return self.bucky + ct_dim[1] * voxel_size[1] / 2
-
-    def create_proj_geom(self, DOD: Optional[float] = None):
-        """Create projection geometry for tomosynthesis.
-        
-        Parameters:
-        DOD (float, optional): Detector-object distance. If None, uses the current DOD value.
-        
-        Returns:
-        Any: astra projection geometry object
-
-
-        NOTES:
-            vectors[i, 2] = (self.nprojs // 2 - i) * self.step  # Z — moves from top to bottom
-                i= 0: this is initial position then source_z = ....
-
-        """
-
-        if DOD is not None:
-            self.DOD = DOD
-            
-        if self.DOD is None:
-            raise ValueError("DOD must be set either through compute_DOD or directly passed to create_proj_geom")
-
-        # vectors = np.zeros((self.nprojs + 1, 12)) #vectors should be np to use in astra create proj geom
-        vectors = np.zeros((self.nprojs, 12))
-        FP = -self.DOD  # Focus plane at detector surface, can be changed to different focus plane
-        
-        # for i in range(self.nprojs + 1):
-        for i in range(self.nprojs):
-            # Source coordinates (for CBCT should change 0,1, but for tomo, only 2)
-            vectors[i, 0] = 0
-            vectors[i, 1] = -(self.SDD - self.DOD)
-            vectors[i, 2] = (self.nprojs // 2 - i) * self.step
-            
-            # Center of detector
-            vectors[i, 3] = 0
-            vectors[i, 4] = self.DOD
-            vectors[i, 5] = -(self.nprojs // 2 - i) * self.step * (self.DOD + FP) / (self.SDD - FP)
-            
-            # Vector from detector pixel (0,0) to (0,1)
-            vectors[i, 6] = self.px_size[0]
-            vectors[i, 7] = 0
-            vectors[i, 8] = 0
-            
-            # Vector from detector pixel (0,0) to (1,0)
-            vectors[i, 9] = 0
-            vectors[i, 10] = 0
-            vectors[i, 11] = self.px_size[1]
-            
-        return astra.create_proj_geom('cone_vec', self.proj_size[0], self.proj_size[1], vectors)
-
-    def configure_from_dict(self,config: dict) -> "Astra_Tomo":
-        self.proj_size = [config["geometry"]["detector_size"][0] // config["geometry"]["binning_proj"],
-                         config["geometry"]["detector_size"][1] // config["geometry"]["binning_proj"]]
-        self.px_size = [config["geometry"]["pixel_size"][0] * config["geometry"]["binning_proj"],
-                       config["geometry"]["pixel_size"][1] * config["geometry"]["binning_proj"]]
-        self.SDD = config["geometry"]["SDD"]
-        self.bucky = config["geometry"]["bucky"]
-        self.step = config["geometry"]["step"]
-        self.nprojs = config["geometry"]["nsteps"]
-        return self
-    
-    def configure_from_geometry(self, geometry: TomoGeometry)->"Astra_Tomo":
-        self.geometry = geometry
-        self.proj_size = [
-            geometry.detector_size[0] // geometry.binning_proj,
-            geometry.detector_size[1] // geometry.binning_proj
-        ]
-        self.px_size = [
-            geometry.pixel_size[0] * geometry.binning_proj,
-            geometry.pixel_size[1] * geometry.binning_proj
-        ]
-        
-        # Set tomosynthesis-specific parameters
-        self.SDD = geometry.SDD
-        self.bucky = geometry.bucky
-        self.step = geometry.step
-        self.nprojs = geometry.nstep + 1
-        self.DOD: Optional[float] = None  # Will be calculated when needed
-        self.angles: Any = xp.array([0])  # Single angle for tomo
-        
-        return self
-
-class Astra_CBCT(Astra_OP):
-    
-    def __init__(self, geometry: CBCTGeometry):
-        super().__init__()
-        if geometry is not None:
-            self.configure_from_geometry(geometry)
-        else:
-            self.SDD: float = 1 # Source to detector distance in mm
-            self.DOD: float = 1  # Detector to object distance in mm  
-            self.step_angle: float = 1 # Angular step between projections in degrees
-            self.init_angle: float = 0 # Initial angle in degrees
-            self.nprojs: int = 360 # Number of projections
-
-        self.angles: np.ndarray = np.array(range(360)) / 180 * np.pi  # Projection angles in radians
-        self.geometry_mode: GeometryMode = GeometryMode.CBCT3D
-        self.fbp_filter: str  = 'ram-lak'
-        self.beam_geometry: str = 'fanflat' # parallel
-
-    def set_geometry_mode(self, mode: GeometryMode):
-        self.geometry_mode = mode
-
-    def set_fbp_filter(self, name: str):
-        self.fbp_filter = name  # 'ram-lak', 'hann', 'shepp-logan', 
-
-    def set_beam_geometry(self, name:str):
-        self.beam_geometry = name
-
+    It implements cone-vec geometry tailored for DCT with linear geometry 
+    fixed flat detector + spurce moving along Z axis 
+    """
     def create_proj_geom(self):
-        """Create projection geometry for CBCT.
-        
-        Returns:
-        astra projection geometry
-        """
-        if self.geometry_mode == GeometryMode.CBCT3D:
-            return astra.create_proj_geom(
+        g = self.geometry   #  *** type TomoGeom
+        W, H   = g.W, g.H
+        pxW, pxH = g.pxW, g.pxH
+        FP = - g.DOD
+        vec = np.zeros((g.nprojs, 12), dtype=np.float32)
+        for i in range(g.nprojs):
+            z = (g.nprojs//2 - i)*g.step_mm
+            vec[i,0:3]  = (0, -(g.SDD - g.DOD), z)
+            vec[i,3:6]  = (0,  g.DOD, -z*(g.DOD + FP)/(g.SDD - FP))
+            vec[i,6:9]  = (pxW, 0, 0)
+            vec[i,9:12] = (0, 0, pxH)
+        return astra.create_proj_geom('cone_vec', W, H, vec)
+    
+      
+class ASTRA_CBCT(Astra_OP):
+    """
+    It implements astra 3D geometries for CBCT setups 
+    with flat panel moving with source circular geometry typical from xxx scaner 
+    """  
+    def create_proj_geom(self):
+        g = self.geometry  # type CTGeom
+        W, H   = g.W, g.H
+        pxW, pxH = g.pxW, g.pxH
+        angles =  g.angles
+        return astra.create_proj_geom(
                 'cone',
-                self.px_size[1], self.px_size[0],
-                self.proj_size[1], self.proj_size[0],
-                self.angles,
-                self.SDD - self.DOD,
-                self.DOD
+                pxH, pxW,
+                H, W,
+                angles,
+                g.SDD - g.DOD,
+                g.DOD
             )
-        
-        # ---- CBCT2D: 
-        det_count = int(self.proj_size[0])                       
-        det_spacing = float(self.px_size[0])                       
-        angles    = np.asarray(self.angles, dtype=np.float32)    
-        SOD       = float(self.SDD - self.DOD)
-        ODD       = float(self.DOD)
 
-        if self.beam_geometry == 'parallel':
-            return astra.create_proj_geom('parallel', det_spacing, det_count, angles)
-
-        if self.beam_geometry == 'fanflat':
-            return astra.create_proj_geom('fanflat', det_spacing, det_count, angles, SOD, ODD)
-            
-    def _create_vol_geom_2d(self, X:int, Y:int, vx:float, vy:float):
-        return astra.create_vol_geom(
-            int(Y), int(X),
-            -float(X)*float(vx)/2.0,  float(X)*float(vx)/2.0,
-            -float(Y)*float(vy)/2.0,  float(Y)*float(vy)/2.0
-        )
-
-    def _parse_vx2d(self, vx_size):
-        if len(vx_size) >= 2:
-            return float(vx_size[0]), float(vx_size[1])
-        raise ValueError("vx_size must be (vx, vy) or (vx, vy, vz)")
+# class ASTRA_PARALLELCT3D(AstraOp):
+#     """
+#     """
+#     def create_proj_geom(self):
+#         g = self.geometry  # type CTGeom
+#         W, H   = g.W, g.H
+#         pxW, pxH = g.pxW, g.pxH
+#         angles =  g.angles()
+#         return astra.create_proj_geom(
+#                 'parallel3d',
+#                 H, W,
+#                 pxH, pxW,
+#                 angles,
+#                 g.SDD - g.DOD,
+#                 g.DOD
+#             )
     
-    def project(self, input_img: cp.ndarray, vx_size) -> cp.ndarray:
-        # 3D mode delegates to parent 
-        if self.geometry_mode == GeometryMode.CBCT3D:
-            return super().project(input_img, vx_size)
-
-        if input_img.ndim != 2:
-            raise ValueError("CBCT2D project expects a single slice (X,Y).")
-        
-        X, Y = input_img.shape
-        vx, vy = self._parse_vx2d(vx_size)
-
-        A = int(len(self.angles))
-        D = int(self.proj_size[0])
-
-        vol_geom_2d  = self._create_vol_geom_2d(X, Y, vx, vy)
-        proj_geom_2d = self.create_proj_geom()
-
-        # convert to ASTRA layout [Y,X]
-        img_astra = cp.swapaxes(input_img.astype(cp.float32, copy=False), 0, 1)
-        out_shape_astra = (A, D)  # [angles, detector]
-
-        sino_astra = self._run_astra_CUDA(
-            "FP_CUDA",
-            img_astra,
-            Role.VOL,
-            vol_geom_2d,
-            proj_geom_2d,
-            out_shape_astra,
-            is3d=False 
-        )
-        return sino_astra 
-
-
-    def backproject(self, proj_data: cp.ndarray, reco_dim, reco_vx_size, **kwargs) -> cp.ndarray:
-        # 3d mode delegates to parent 
-        if self.geometry_mode == GeometryMode.CBCT3D:
-            return super().backproject(proj_data, reco_dim, reco_vx_size, **kwargs)
-
-        if proj_data.ndim != 2:
-            raise ValueError("CBCT2D backproject expects sino (A,D).")
-
-        X, Y = reco_dim
-        vx, vy = self._parse_vx2d(reco_vx_size)
-        A, D = proj_data.shape
-
-        vol_geom_2d  = self._create_vol_geom_2d(X, Y, vx, vy)
-        proj_geom_2d = self.create_proj_geom()
-        out_shape_astra = (Y, X)  # [rows, cols] in ASTRA
-
-        # input already ASTRA layout [A,D]
-        sino_astra = proj_data.astype(cp.float32, copy=False)
-
-        vol_astra = self._run_astra_CUDA(
-            "BP_CUDA",
-            sino_astra,
-            Role.SINO,
-            vol_geom_2d,
-            proj_geom_2d,
-            out_shape_astra,
-            is3d=False
-        )
-
-        # ASTRA -> [X,Y]
-        return cp.swapaxes(vol_astra, 0, 1)
-
-    def fbp(self, proj_data: cp.ndarray, reco_dim, reco_vx_size, **kwargs) -> cp.ndarray:
-        # 3D mode delegates to parent (FDK)
-        if self.geometry_mode == GeometryMode.CBCT3D:
-            return super().fdk(proj_data, reco_dim, reco_vx_size, **kwargs)
-
-        if proj_data.ndim != 2:
-            raise ValueError("CBCT2D fbp expects sino (A,D).")
-
-        X, Y = reco_dim
-        vx, vy = self._parse_vx2d(reco_vx_size)
-        A, D = proj_data.shape
-
-        vol_geom_2d  = self._create_vol_geom_2d(X, Y, vx, vy)
-        proj_geom_2d = self.create_proj_geom()
-        out_shape_astra = (Y, X)
-
-        sino_astra = proj_data.astype(cp.float32, copy=False)
-
-        vol_astra = self._run_astra_CUDA(
-            "FBP_CUDA",
-            sino_astra,
-            Role.SINO,
-            vol_geom_2d,
-            proj_geom_2d,
-            out_shape_astra,
-            is3d=False,
-            extra_cfg={'FilterType': self.fbp_filter}
-        )
-
-        # ASTRA -> [X,Y]
-        return cp.swapaxes(vol_astra, 0, 1)
-
-    def configure_from_dict(self, config: dict)-> "Astra_CBCT":
-        self.proj_size = [config["geometry"]["detector_size"][0] // config["geometry"]["binning_proj"],
-                         config["geometry"]["detector_size"][1] // config["geometry"]["binning_proj"]]
-        self.px_size = [config["geometry"]["pixel_size"][0] * config["geometry"]["binning_proj"],
-                       config["geometry"]["pixel_size"][1] * config["geometry"]["binning_proj"]]
-        self.SDD = config["geometry"]["SDD"]
-        self.DOD = config["geometry"]["DOD"]
-        self.step_angle = config["geometry"]["step_angle"]
-        self.init_angle = config["geometry"]["init_angle"]
-        self.nprojs = config["geometry"]["nprojs"]
-        return self
+class ASTRA_PARALLELCT2D(Astra_OP):
+    """
+    """
+    def create_proj_geom(self):
+        g = self.geometry # type CTGeom
+        det_count, det_spacing= g.W, g.pxW
+        angles= g.angles
+        return astra.create_proj_geom('parallel', 
+                                    det_spacing, 
+                                    det_count,
+                                    angles )
     
-    def configure_from_geometry(self, geometry: CBCTGeometry) ->"Astra_CBCT":
-        self.geometry = geometry
-        self.proj_size = [
-            geometry.detector_size[0] // geometry.binning_proj,
-            geometry.detector_size[1] // geometry.binning_proj
-        ]
-        self.px_size = [
-            geometry.pixel_size[0] * geometry.binning_proj,
-            geometry.pixel_size[1] * geometry.binning_proj
-        ]
-        
-        self.SDD = geometry.SDD
-        self.DOD = geometry.DOD
-        self.step_angle = geometry.step_angle
-        self.init_angle = geometry.init_angle
-        self.nprojs = geometry.nprojs
-        return self 
+class ASTRA_FANBEAMCT(Astra_OP):
+    """
+    """
+    def create_proj_geom(self):
+        g = self.geometry # type CTGeon
+        det_count, det_spacing = g.W, g.pxW
+        angles = g.angles
+        return astra.create_proj_geom('fanflat', 
+                                      det_spacing,
+                                      det_count, 
+                                      angles, 
+                                      g.SOD,    # SOURCE-ORIGIN
+                                      g.DOD)    # ORIGIN-DET
+    
+
+
+MODALITY_REGISTRY: Dict[OpMod, Type[GeometricOp]] = {
+    OpMod.DCT:        ASTRA_Tomo,
+    OpMod.CBCT:       ASTRA_CBCT,
+    OpMod.PARALLEL2D: ASTRA_PARALLELCT2D,
+    OpMod.FANBEAM2D:  ASTRA_FANBEAMCT,
+}
