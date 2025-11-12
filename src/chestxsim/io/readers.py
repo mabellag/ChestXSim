@@ -79,8 +79,8 @@ class CTReader(ABC):
 
         # Stamp once; never overwrite if already present
         md = data.metadata
-        md.init.setdefault("ct_orig_shape", tuple(md.dim))
-        md.init.setdefault("ct_orig_vx", tuple(md.voxel_size))
+        md.init.setdefault("ct_dim", tuple(md.dim))
+        md.init.setdefault("ct_vx", tuple(md.voxel_size))
 
             
         # Apply slope and intercept to convert to HU
@@ -344,20 +344,29 @@ class RawReader(CTReader):
         # md.setdefault("order", "F")
         # md.setdefault("scale", 1.0)
         # md.setdefault("intercept", 0.0)
-            
-            # --- read log.txt (optional) ---
         if log_path.exists():
             with log_path.open("r", encoding="utf-8") as f:
                 for raw in f:
                     line = raw.strip()
-                    if ":" in line and not line.startswith("***"):
-                        step_name, details = (s.strip() for s in line.split(":", 1))
-                        try:
-                            md.step_outputs[step_name] = eval(details)
-                        except Exception:
-                            md.step_outputs[step_name] = details
+                    
+                    if not line or line.startswith("***") or ":" not in line:
+                        continue
 
-        return md
+                    step_name, details = (s.strip() for s in line.split(":", 1))
+                    try:
+                        parsed = eval(details)
+                    except Exception:
+                        parsed = details  # leave as string if not a literal
+
+                    if step_name.lower() == "init":
+                        if isinstance(parsed, dict):
+                            md.init.update(parsed)
+                        else:
+                            md.init["raw_init"] = parsed
+                    else:
+                        md.step_outputs[step_name] = parsed
+
+                return md
 
     
     @staticmethod

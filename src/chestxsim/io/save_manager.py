@@ -31,13 +31,13 @@ class SaveManager:
             base_save_dir = RESULTS_DIR
         self.base_dir = Path(base_save_dir)
 
+
     def resolve_folder_structure(self, step_class: str, metadata: MetadataContainer) -> Dict[str, Path]:
         step_folder = STEP_TO_FOLDER.get(step_class)
-        print(step_folder)
         sim_id = metadata.id or "unnamed"
         components = [step_folder]
 
-        spectrum = metadata.step_outputs.get("SpectrumEffect", {}).get("spectrum", "")
+        spectrum = metadata.step_outputs.get("PhysicsEffect", {}).get("spectrum", "")
         if spectrum:
             spectrum_key = "polychromatic" if "poly" in spectrum.lower() else "monochromatic"
             components.append(SPECTRUM_TO_FOLDER[spectrum_key])
@@ -82,9 +82,6 @@ class SaveManager:
         Otherwise, a new numbered path is created (e.g., <base_path>_1)
         """
 
-        # Normalize dim to (x, y, z, 1) for consistent hashing of multi-channel volumes.
-        # This ensures that per-tissue saves (which store a single channel) produce the same info.txt
-        # and avoid triggering unnecessary creation of new save folders.
         if len(metadata.dim) == 4 and metadata.dim[-1]:
             metadata.dim = metadata.dim[:3] + (1,)
 
@@ -96,7 +93,6 @@ class SaveManager:
 
         counter = 1
         alt_path = base_path
-        print(alt_path)
         while True:
             info_file = alt_path / "info.txt"
             log_file = alt_path / "log.txt"
@@ -106,15 +102,14 @@ class SaveManager:
                     existing_info_hash = hashlib.md5(f.read()).hexdigest()
                 with open(log_file, "rb") as f: 
                     existing_log_hash = hashlib.md5(f.read()).hexdigest()
-                
-                # print(existing_info_hash,current_info_hash)
-                # print(existing_log_hash, current_log_hash)
 
                 if existing_info_hash == current_info_hash and existing_log_hash == current_log_hash:
+                    # print(f"[SaveManager] Reusing existing folder (simulation identical): {alt_path}")
                     return alt_path
 
             alt_path = Path(f"{base_path}_{counter}")
             if not alt_path.exists():
+                # print(f"[SaveManager] Simulation with ID '{metadata.id}' has changed — saving new results to: {alt_path}")
                 return alt_path
             counter += 1
 
@@ -132,22 +127,21 @@ class SaveManager:
                         path = folder_paths[tissue]
                         path.mkdir(parents=True, exist_ok=True)
                         single_channel = volume[..., i]
-                        #tissue_metadata = self._create_tissue_specific_metadata(metadata, tissue, i)
                         self.save_volume(single_channel, path, f"{sim_id}.img")
                         self.write_metadata_to_txt(metadata, path)
-                        print(f"Saved {tissue} channel to: {path}")
+                        print(f"[SaveManager] Saved {tissue} channel to: {path}")
             else:
                 path = folder_paths["default"]
                 path.mkdir(parents=True, exist_ok=True)
                 self.save_volume(volume, path, f"{sim_id}.img")
                 self.write_metadata_to_txt(metadata, path)
-                print(f"Saved multi-channel volume to: {path}")
+                print(f"[SaveManager] Saved multi-channel volume to: {path}")
         else:
             path = folder_paths["default"]
             path.mkdir(parents=True, exist_ok=True)
             self.save_volume(volume, path, f"{sim_id}.img")
             self.write_metadata_to_txt(metadata, path)
-            print(f"Saved volume to: {path}")
+            print(f"[SaveManager] {step_name} result saved to: {path}")
 
     def save_volume(self, volume: Any, dir_path: str, file_name: str, dtype='<f4'):
         dir_path = Path(dir_path)
@@ -166,7 +160,10 @@ class SaveManager:
             f"dim: {metadata.dim}\n"
             f"voxel_size: {metadata.voxel_size}\n"
             f"dtype: {metadata.dtype}\n"
+            f"endianness: {metadata.endianness}\n"
+            f"order: {metadata.order}\n"
             f"id: {metadata.id}\n"
+
         )
     
         with open(info_file, "w", encoding="utf-8", newline="\n") as f_info:
@@ -174,11 +171,8 @@ class SaveManager:
 
         log_content = "*** CHESTXSIM PROCESSING LOG ***\n\n"
 
-        # Write init dict as first entry
         if metadata.init:
-            init_json = json.dumps(metadata.init, ensure_ascii=False, indent=2, sort_keys=True)
-            log_content += f"init: {init_json}\n\n"
-        
+            log_content += f"init: {metadata.init}\n"        
         # then step outputs 
         for step_name, details in metadata.step_outputs.items():
             log_content += f"{step_name}: {details}\n"
@@ -192,17 +186,20 @@ class SaveManager:
             f"dim: {metadata.dim}\n"
             f"voxel_size: {metadata.voxel_size}\n"
             f"dtype: {metadata.dtype}\n"
+            f"endianness: {metadata.endianness}\n"
+            f"order: {metadata.order}\n"
             f"id: {metadata.id}\n"
         )
         return hashlib.md5(content.encode("utf-8")).hexdigest()
 
     @staticmethod
     def hash_log(metadata: MetadataContainer) -> str:
-        content = "*** SIMULATION STEP REGISTRY ***\n\n"
+        content = "*** CHESTXSIM PROCESSING LOG ***\n\n"
+        if metadata.init:
+            content += f"init: {metadata.init}\n"
         for step_name, details in metadata.step_outputs.items():
             content += f"{step_name}: {details}\n"
         return hashlib.md5(content.encode("utf-8")).hexdigest()
-
 
     def save(self, vol_data: volumeData, custom_folder: str = None):
         path = self.base_dir / (custom_folder if custom_folder else vol_data.metadata.id or "unnamed")

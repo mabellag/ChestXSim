@@ -63,39 +63,71 @@ class MetadataContainer:
         return default
     
   
-    def find(self, field: str, multiple: bool = False, default=None):
+    # def find(self, field: str, multiple: bool = False, default=None):
+    #     """
+    #     Search all recorded steps for a given field name.
+
+    #     Args:
+    #         field: the key to search for in each step's output
+    #         multiple: if True, return a dict {step_name: value} for all matches.
+    #                   if False (default), return the first match value found
+    #                   in reverse step order (most recent first).
+    #         default: value returned if not found.
+
+    #     Examples:
+    #         md.find("units")                -> 'mu'
+    #         md.find("units", multiple=True) -> {'UnitConverter': 'mu'}
+    #     """
+    #     if multiple:
+    #         results = {
+    #             step: data[field]
+    #             for step, data in self.step_outputs.items()
+    #             if isinstance(data, dict) and field in data
+    #         }
+    #         return results if results else default
+
+    #     # Single (latest) match, reverse order = last written
+    #     for step_name in reversed(list(self.step_outputs.keys())):
+    #         data = self.step_outputs[step_name]
+    #         if isinstance(data, dict) and field in data:
+    #             return data[field]
+    #     return default
+
+    def find(self, key: str, default: Any=None) -> Any:
         """
-        Search all recorded steps for a given field name.
-
-        Args:
-            field: the key to search for in each step's output
-            multiple: if True, return a dict {step_name: value} for all matches.
-                      if False (default), return the first match value found
-                      in reverse step order (most recent first).
-            default: value returned if not found.
-
-        Examples:
-            md.find("units")                -> 'mu'
-            md.find("units", multiple=True) -> {'UnitConverter': 'mu'}
+        Search order:
+        1) Direct attribute on the container (e.g., voxel_size)
+        2) 'step_outputs' dicts (latest-first), shallow keys first
+        3) 'init' dict (e.g., ct_vx)
         """
-        if multiple:
-            results = {
-                step: data[field]
-                for step, data in self.step_outputs.items()
-                if isinstance(data, dict) and field in data
-            }
-            return results if results else default
+        # 1) direct attribute
+        if hasattr(self, key):
+            value = getattr(self, key)
+            if value is not None:
+                return value
 
-        # Single (latest) match, reverse order = last written
-        for step_name in reversed(list(self.step_outputs.keys())):
-            data = self.step_outputs[step_name]
-            if isinstance(data, dict) and field in data:
-                return data[field]
+        # 2) init dict
+        if isinstance(self.step_outputs, dict) and self.step_outputs:
+            # preserve insertion order, walk from newest to oldest
+            for _, data in reversed(list(self.step_outputs.items())):
+                if isinstance(data, dict) and key in data:
+                    return data[key]
+        
+        # 3) step_outputs (latest first)
+        if isinstance(self.init, dict) and key in self.init:
+            return self.init[key]
+      
+
+            # # 4) deep search inside step_outputs (latest-first)
+            # for _, data in reversed(list(self.step_outputs.items())):
+            #     found = _deep_find(data, key)
+            #     if found is not _NOT_FOUND:
+            #         return found
+
         return default
        
 
     
-
 
 @dataclass
 class volumeData:
@@ -250,48 +282,3 @@ class MACRepo:
     @staticmethod
     def _norm(material: str) -> str:
         return str(material).strip().lower()
-
-
-# @dataclass
-# class Physics:
-#     I0: Union[float, int, Any]
-#     voltage: int
-#     poly_flag: bool
-#     specter_path: Optional[str] = None
-#     mac_folder: Optional[str] = None
-#     effective_energy: Optional[int] = None
-
-#     def __post_init__(self):
-#         if self.specter_path is None:
-#             self.specter_path = SPECTRUM_DIR/ f"spectr{self.voltage}kVp.mat"
-#         if self.mac_folder is None:
-#             self.mac_folder = MAC_DIR
-
-
-#     @property
-#     def spectrum(self)-> Any:
-#         spectrum_data = sio.loadmat(self.specter_path)
-#         spectrum = spectrum_data["spectrum"].flatten()
-#         spectrum = spectrum[1:self.voltage + 1]
-        
-#         if not self.poly_flag:
-#             e_eff = self.effective_energy
-#             val_eff = spectrum[e_eff - 1]
-#             spectrum = xp.zeros_like(spectrum)
-#             spectrum[e_eff - 1] = val_eff
-        
-#         else:
-#             sum_spectrum = xp.sum(spectrum)
-#             if sum_spectrum != 1.0:
-#                 spectrum /= sum_spectrum
-#         return spectrum
-    
-    
-#     def mac_data(self, material_type: str):
-#         print(self.mac_folder / f"mac_{material_type}.txt")
-#         return xp.loadtxt(self.mac_folder / f"mac_{material_type}.txt")
-    
-#     @classmethod
-#     def from_dict(cls, data: Dict[str, Any]) -> "Physics":
-#         return cls(**data)
-    
