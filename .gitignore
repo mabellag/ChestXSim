@@ -39,6 +39,7 @@ examples/notebooks/results/*
 # test folder
 test/*
 !test/.gitkeep
+borrar/
 
 # =============================
 # Ignore specific file types globally
