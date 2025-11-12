@@ -1,116 +1,49 @@
 {
-  "modality": "DCT",
-  "geometry": {
-    "detector_size": [4288, 4288],
-    "pixel_size": [0.1, 0.1],
-    "binning_proj": 4,
-    "SDD": 1800,
-    "bucky": 47.43,
-    "step": 16.077,
-    "nstep": 60
-  },
-  "preprocessing": {
-    "bed_removal": {
-      "enabled": true,
-      "use-dl": false,
-      "threshold": -200,
-      "save": false
+    "modality": "DCT",
+    "geometry": {
+        "detector_size": [4288, 4288],
+        "pixel_size": [0.1, 0.1],
+        "binning_proj": 4,
+        "SDD": 1800.0,
+        "bucky": 14.47,
+        "step_mm": 16.077,
+        "nprojs": 61
     },
-    "air_cropping": {
-      "enabled": true,
-      "axis": 2,
-      "tol": 5,
-      "delta": 5,
-      "channel": 0,
-      "save": false
+    "preprocessing": {
+        "bed_removal": {"threshold": -200, "save_mask": false, "save": true},
+        "air_cropping": {"axis": 1, "tol": 5, "delta": 3, "channel": 0, "save": true},
+        "volume_extension": {"target_height": 600.0, "chest_center": 150, "save": false},
+        "tissue_segmentation": {"threshold": 300, "tissue_types": ["bone", "soft"], "save": false},
+        "unit_conversion": {"units": "density", "tissue_types": ["bone", "soft"], "save": true}
     },
-    "volume_extension": {
-      "enabled": true,
-      "ext_vals_mm": [100, 100],
-      "target_height": null,
-      "useGeometry": true,
-      "chest_center": 150,
-      "save": false
-    },
-    "volume_flipping": {
-      "enabled": false,
-      "axis": 2,
-      "save": false
-    },
-    "tissue_segmentation": {
-      "enabled": true,
-      "use_dl": false,
-      "threshold": 132,
-      "tissue_types": ["bone", "soft"],
-      "tissue_masks": null,
-      "save_masks": false,
-      "save": false
-    },
-    "unit_conversion": {
-      "enabled": true,
-      "units": "density",
-      "tissue_types": ["bone", "soft"],
-      "mu_factor": [2.0, 1.0],
-      "e_eff": null,
-      "voltage": null,
-      "save": true
-    }
-
-  },
-  "projection": {
     "projection": {
-      "enabled": true,
-      "opt": "Astra",
-      "channel_wise": true,
-      "save": true
+        "projection": {"opt": "astra", "channel_wise": true, "save": true},
+        "Physics_effect": {
+            "I0": 1e5,
+            "voltage": 120,
+            "poly_flag": true,
+            "ISL": false,
+            "apply_flood_correction": false,
+            "log": false,
+            "save": true
+        },
+        "noise_effect": {
+            "mu_dark": 2.0,
+            "sigma_dark": 6.0,
+            "apply_flood_correction": true,
+            "log": true,
+            "save": true
+        }
     },
-   
-    "spectrum_effect": {
-      "enabled": true,
-      "physics": {
-        "I0": 100000.0,
-        "voltage": 110,
-        "poly_flag": true,
-        "effective_energy": 65
-      },
-      "ISL": false,
-      "apply_flood_correction": true,
-      "flood": null, "projection": {
-      "enabled": true,
-      "opt": "Astra",
-      "channel_wise": true,
-      "save": false
-    },
-      "log": true,
-      "save": true
-    },
-
-    "noise_effect": {
-      "enabled": false,
-      "mu_dark": 1.0,
-      "sigma_dark": 0.05,
-      "dark_volume": null,
-      "inhomgeneities_map": null,
-      "apply_flood_correction": true,
-      "flood": null,
-      "log": true,
-      "save": true
+    "reconstruction": {
+        "FDK": {
+            "opt": "astra",
+            "match_input": true,
+            "reco_vx": [1.25, 5.00, 1.25],
+            "filter_type": "ramp",
+            "axis": 1,
+            "padding": true,
+            "save": true
+        }
     }
-  },
-  "reconstruction": {
-    "sample_projections": {
-      "enabled": false,
-      "nprojs": 360,
-      "sampling_rate": 1
-    },
-    
-    "FDK": {
-      "enabled": true,
-      "opt": "Astra", 
-      "reco_dim_px": [400, 80, 200],
-      "reco_vx": [1.25, 5.0, 1.25],
-      "offset_filter": 0.005,
-      "save": true
-    }
-  }
 }
