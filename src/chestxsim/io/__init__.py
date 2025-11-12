@@ -18,7 +18,6 @@ from .paths import (
 )
 
 __all__ = [
-    # paths
     "find_project_root",
     "PROJECT_ROOT",
     "MATERIALS_DIR",
@@ -34,14 +33,13 @@ __all__ = [
     "UNITS_TO_FOLDER",
     "TISSUE_TO_FOLDER",
     "SPECTRUM_TO_FOLDER",
-    # lazily exposed symbols:
     "SaveManager",
     "CTReader",
     "DicomReader",
     "RawReader",
 ]
 
-# Lazy access so importing chestxsim.io doesn't pull these in immediately.
+
 def __getattr__(name):
     if name == "SaveManager":
         from .save_manager import SaveManager
