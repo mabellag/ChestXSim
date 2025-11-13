@@ -58,3 +58,9 @@ borrar/
 .ipynb_checkpoints/
 __pycache__/
 *.pyc
+*.egg-info/
+*.egg
+build/
+dist/
+*.pyc
+*.pyo
