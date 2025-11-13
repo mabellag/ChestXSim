@@ -1,18 +1,30 @@
 from pathlib import Path 
+import os 
 
 # All paths below are resolved relative to the  location of this file.
 # This ensures that paths remain valid regardless of the current working directory,
-# allowing the codebase and individual modules to be used independently or as part of a pipeline.
-# Assumes this file is located at: chestXsim-project/src/chestxsim/io/paths.py
 
-# Dynamically find project root 
-def find_project_root(marker: str = "materials") -> Path:
+_MARKERS = ("pyproject.toml", ".git")
+
+def find_project_root() -> Path:
+    env = os.getenv("CHESTXSIM_ROOT")
+    if env:
+        p = Path(env).expanduser().resolve()
+        if p.exists():
+            return p
+        raise RuntimeError(f"CHESTXSIM_ROOT points to a non-existing path: {p}")
+
+    # auto-detect by walking up from this file
     current = Path(__file__).resolve()
     for parent in current.parents:
-        if (parent / marker).exists():
+        if any((parent / m).exists() for m in _MARKERS):
             return parent
-    raise RuntimeError(f"Could not find '{marker}' folder in any parent directory of {__file__}")
 
+    raise RuntimeError(
+        "Cannot find project root. Set CHESTXSIM_ROOT manually, e.g.:\n"
+        "  setx CHESTXSIM_ROOT \"D:\\bhermosi\\chestxsim-project\"  (Windows)\n"
+        "  export CHESTXSIM_ROOT=/path/to/chestxsim-project  (Linux/macOS)"
+    )
 
 PROJECT_ROOT = find_project_root()
 

@@ -33,10 +33,10 @@ Dependencies:
 """
 
 import sys, os
-PROJECT_ROOT = r"D:\bhermosi\chestxsim-project" 
-SRC = os.path.join(PROJECT_ROOT, "src")
-if SRC not in sys.path:
-    sys.path.insert(0, SRC)
+# PROJECT_ROOT = r"D:\bhermosi\chestxsim-project" 
+# SRC = os.path.join(PROJECT_ROOT, "src")
+# if SRC not in sys.path:
+#     sys.path.insert(0, SRC)
 
 import time 
 import os   
@@ -75,7 +75,7 @@ def parse_args():
     parser.add_argument("--output", "-o", default=None, help="Path to output folder (optional)")
     return parser.parse_args()
     
-def main(input_folder: str, config: str, mode: Optional[int] = None, output_folder: Optional[str] = None):
+def run(input_folder: str, config: str, mode: Optional[int] = None, output_folder: Optional[str] = None):
     """
     Execute the simulation pipeline on each CT volume found in the input folder.
     """    
@@ -126,16 +126,12 @@ def main(input_folder: str, config: str, mode: Optional[int] = None, output_fold
         
 
 
-if __name__ == "__main__":
-    overall_start_time = time.time()
+def main(): 
+    overall_t0 = time.time()
     args = parse_args()
-    main(
-        input_folder=args.input,
-        config=args.config,
-        mode=args.mode,
-        output_folder=args.output
+    run(input_folder=args.input, config=args.config, mode=args.mode, output_folder=args.output)
+    print(f"\nSimulation(s) completed in {time.time()-overall_t0:.2f}s.\n")
 
-    )
-    overall_elapsed = time.time() - overall_start_time
-    print(f"\nSimulation(s) completed in {overall_elapsed:.2f} seconds.\n")
+if __name__ == "__main__":
+    main()
     
