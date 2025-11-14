@@ -13,14 +13,14 @@ It supports **geometry-aware acquisition**, **physics-based projection models**,
 
 The repository also includes a **curated manifest** and helper tools for downloading chest CT volumes from the **Medical Imaging and Data Resource Center (MIDRC)**.
 
-[Main Features↗](#main-features)  
-[Project Structure↗](#project-structure)  
-[Installation↗](#-installation)  
-[MIDRC Data Download↗](#-midrc-data-download)  
-[Usage↗](#-usage)  
-[DL Utilities↗](#-deep-learning-utilities)  
-[Extensibility↗](#-extensibility)  
-[Citation↗](#-citation)  
+[Main Features](#main-features)  
+[Project Structure](#project-structure)  
+[Installation](#-installation)  
+[MIDRC Data Download](#-midrc-data-download)  
+[Usage](#-usage)  
+[DL Utilities](#-deep-learning-utilities)  
+[Extensibility](#-extensibility)  
+[Citation](#-citation)  
 
 
 ## ⚙️ Main Features
@@ -284,13 +284,13 @@ Chestxsim's steps `projection()`, `FDK()`, and `SART()` require a configured ope
 
 ### 4. Guides and Notebooks 
 See the full tutorials:
-- [Core Structures↗](./examples/notebooks/0.%20Data_containers.ipynb)  
-- [I/O Management↗](./examples/notebooks/1.%20CT%20Readers.ipynb)
-- [Pipeline↗](./examples/notebooks/5.%20Pipeline.ipynb)
-- [ASTRA Wrapper↗](./examples/notebooks/6.%20Astra%20Wrapper.ipynb)  
-- [Preprocessing Module↗](./examples/notebooks/2.%20Preprocessing.ipynb)  
-- [Projection Module↗](./examples/notebooks/3.%20Projection.ipynb)
-- [Reconstruction Module↗](./examples/notebooks/4.%20Preprocessing.ipynb)
+- [Core Structures](./examples/notebooks/0.%20Data_containers.ipynb)  
+- [I/O Management](./examples/notebooks/1.%20CT%20Readers.ipynb)
+- [Pipeline](./examples/notebooks/5.%20Pipeline.ipynb)
+- [ASTRA Wrapper](./examples/notebooks/6.%20Astra%20Wrapper.ipynb)  
+- [Preprocessing Module](./examples/notebooks/2.%20Preprocessing.ipynb)  
+- [Projection Module](./examples/notebooks/3.%20Projection.ipynb)
+- [Reconstruction Module](./examples/notebooks/4.%20Preprocessing.ipynb)
 
 
 ## 🧠 Deep Learning Utilities
