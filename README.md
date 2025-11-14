@@ -36,7 +36,6 @@ The repository also includes a **curated manifest** and helper tools for downloa
 ChestXsim/
 ├── examples/      # Example configs and guides
 ├── inputs/        # Input CT cases
-├── materials/     # Models, MAC tables, spectra, executables
 ├── settings/      # Pipeline configuration files
 ├── src/chestxsim/ # Core Python package
 │   ├── cli/              # CLI tools (run_simulation.py, interpolate.py, etc.)

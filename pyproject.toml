@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "chestxsim"
 version = "0.1.0"
 description = "Digital Chest Tomosynthesis simulation toolkit"
-authors = [ {name="Blanca Hermosilla", email="bhermosi@pa.uc3m.es" } ]
+authors = [ {name="BiiG research group at University Carlos III of Madrid (UC3M).", email="bhermosi@pa.uc3m.es" } ]
 license = {file = "LICENSE"}
 readme = "README.md"
 requires-python = ">=3.10"
