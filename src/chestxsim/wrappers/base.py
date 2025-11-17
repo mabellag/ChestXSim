@@ -1,5 +1,12 @@
 """
-Base class for geometric operator wrappers around external projection engines.
+Base abstractions for geometric operators wrapping external projection engines.
+
+A geometric operator is a thin backend-agnostic interface (ASTRA, FuXSim, Raptor, …)
+that knows how to:
+    - project a volume into a sinogram,
+    - backproject a sinogram into a volume,
+    - run reconstruction algorithm from the own software if available (e.g. FBP/FDK, iterative methods)
+for a given acquisition `Geometry`.
 """
 
 from chestxsim.core import Geometry, Modality, BeamGeom

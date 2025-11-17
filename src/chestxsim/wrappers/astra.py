@@ -1,56 +1,73 @@
+"""
+ASTRA-based implementations of the `GeometricOp` interface.
+
+This module adapts ChestXsim layouts and geometries to ASTRA's data structures
+and algorithms. It provides:
+
+- `Astra_OP`: base class wrapping ASTRA projectors / reconstructors,
+- concrete operators for different modalities:
+    * `ASTRA_Tomo`        – 3D cone-beam DCT with custom `cone_vec` geometry,
+    * `ASTRA_CBCT`        – 3D cone-beam CT with circular trajectory,
+    * `ASTRA_PARALLELCT2D` – 2D parallel-beam CT,
+    * `ASTRA_FANBEAMCT`   – 2D fan-beam CT.
+
+Coordinate system (ChestXsim convention):
+    [x, y, z]
+    - z: top → bottom (detector rows / height)
+    - x: left → right (detector cols / width)
+    - y: anterior → posterior
+
+Layout conventions:
+    ChestXsim:
+        VOL 3D : [X, Y, Z]
+        SINO 3D: [W, H, A]
+        VOL 2D : [X, Y]
+        SINO 2D: [A, D]
+
+    ASTRA:
+        VOL 3D : [Z, Y, X]
+        SINO 3D: [H, A, W]  (rows, angles, cols)
+        VOL 2D : [Y, X]
+        SINO 2D: [A, D]
+
+Tomosynthesis `cone_vec` geometry per projection uses ASTRA's vector layout:
+    (srcX, srcY, srcZ, dX, dY, dZ, uX, uY, uZ, vX, vY, vZ)
+where:
+    - [srcX, srcY, srcZ] is the source position
+    - [dX, dY, dZ] is the detector center
+    - [uX, uY, uZ] is the horizontal detector axis (columns, X)
+    - [vX, vY, vZ] is the vertical detector axis (rows, Z)
+"""
+
+
 import astra
-# from chestxsim.utility import *
 import numpy as np 
 from typing import Optional, Tuple, Dict, Type
 from chestxsim.core.geometries import Geometry
 from chestxsim.core.device import xp
 from chestxsim.wrappers.base import GeometricOp, OpMod
-# import cupy as cp
 from enum import Enum
 from abc import ABC, abstractmethod
 
-
-"""
-    NOTES: 
-    Coordinate system: [x,y,z] in ChestXsim         
-        z top to bottom :: this aligns with detector rows :: detector height
-        |
-        | __ x side to side  :: this aligns with detector cols :: detector widht 
-        /
-    y anterior-posterior 
-
-    Layouts and shapes:
-    > ChestXsim layout:
-        VOL 3D: [X,Y,Z]
-        SINO 3D: [W,H,A]
-        VOL 2D: [X,Y]
-        SINO 2D: [A,D]
-
-    > ASTRA layout:
-        VOL 3D: [Z,Y,X]
-        SINO 3D: [H,A,W] (rows, angles, cols)
-        VOL 2D: [Y,X]
-        SINO 2D: [A,D]
-
-    Geometry Layout (per 3D projection) using cone_vec for Tomosynthesis 
-    ( srcX, srcY, srcZ, dX, dY, dZ, uX, uY, uZ, vX, vY, vZ ) according to astra 
-    ---------------------------------
-        vectors[i, 0:3]   : Source position:
-                           (X = 0, Y = -SDD + DOD, Z = moving along step)
-        vectors[i, 3:6]   : Detector center position:
-                           (X = 0, Y = DOD, Z = adjusted to maintain magnification)
-        vectors[i, 6:9]   : Vector from (0,0) to (0,1) pixel: horizontal detector axis (X)
-        vectors[i, 9:12]  : Vector from (0,0) to (1,0) pixel: vertical detector axis (Z)
-     
-"""
 
 class Backend(Enum):
     GPU = "gpu"
     CPU = "cpu"
 
+
+# ---- ASTRA HOOKS (ALGO SELECTION & LAYOUT HELPERS) -------------------------
 # # Customizable behaviour points using hooks
-## composition over ineritance - we pass the hook rather that subclassing whole operator for very small variants 
 class ASTRAHooks:
+    """
+    Helper object encapsulating ASTRA-specific behavior:
+
+    - picks correct FP/BP/FDK/FBP algorithm IDs (CPU/GPU, 2D/3D),
+    - defines conversions between ChestXsim <-> ASTRA layouts,
+    - provides the correct ASTRA data API (data2d/data3d),
+    - defines data-kind strings for linking NumPy arrays into ASTRA.
+
+    Keeps backend/dimension-specific logic isolated from `Astra_OP`.
+    """
     def __init__(self, backend: Backend, is3d: bool):
         self.backend = backend
         self.is3d = is3d
@@ -132,7 +149,7 @@ class ASTRAHooks:
     def proj_name(self):
         return None 
 
-
+# ---- BASE ASTRA OPERATOR ---------------------------------------------------
 class Astra_OP(GeometricOp, ABC):
     """
     Public API (dimension-aware via hooks):
@@ -225,8 +242,6 @@ class Astra_OP(GeometricOp, ABC):
         return in_arr, vol_geom, proj_geom
 
     def _prep_backward(self, sino, reco_dim_xyz, reco_vx_xyz):
-        #  if hasattr(self.geometry, "fit_to_volume"):
-        #     self.geometry.fit_to_volume(vol_xyz.shape, vx_xyz)
         vol_geom  = self.create_vol_geom(reco_dim_xyz, reco_vx_xyz)
         proj_geom = self.create_proj_geom()
         in_arr    = self.hooks.to_astra_sino(sino)
@@ -284,14 +299,18 @@ class Astra_OP(GeometricOp, ABC):
         return xp.asarray(out_np)
     
      
-# -- Concrete operators per modality --
+# ---- CONCRETE OPERATORS ----------------------------------------------------
 class ASTRA_Tomo(Astra_OP):
     """
-    It implements cone-vec geometry tailored for DCT with linear geometry 
-    fixed flat detector + spurce moving along Z axis 
+    Digital Chest Tomosynthesis (DCT) operator using ASTRA `cone_vec`.
+
+    Implements:
+        - fixed flat-panel detector,
+        - X-ray source moving linearly along Z,
+        - per-projection ASTRA vector geometry.
     """
     def create_proj_geom(self):
-        g = self.geometry   #  *** type TomoGeom
+        g = self.geometry   
         W, H   = g.W, g.H
         pxW, pxH = g.pxW, g.pxH
         FP = - g.DOD
@@ -307,11 +326,11 @@ class ASTRA_Tomo(Astra_OP):
       
 class ASTRA_CBCT(Astra_OP):
     """
-    It implements astra 3D geometries for CBCT setups 
-    with flat panel moving with source circular geometry typical from xxx scaner 
-    """  
+    Cone-beam CT operator using ASTRA's built-in `cone` geometry.
+    Circular source–detector trajectory around the object.
+    """
     def create_proj_geom(self):
-        g = self.geometry  # type CTGeom
+        g = self.geometry 
         W, H   = g.W, g.H
         pxW, pxH = g.pxW, g.pxH
         angles =  g.angles
@@ -342,10 +361,9 @@ class ASTRA_CBCT(Astra_OP):
 #             )
     
 class ASTRA_PARALLELCT2D(Astra_OP):
-    """
-    """
+    """2D parallel-beam CT operator using ASTRA `parallel` geometry."""
     def create_proj_geom(self):
-        g = self.geometry # type CTGeom
+        g = self.geometry 
         det_count, det_spacing= g.W, g.pxW
         angles= g.angles
         return astra.create_proj_geom('parallel', 
@@ -354,10 +372,9 @@ class ASTRA_PARALLELCT2D(Astra_OP):
                                     angles )
     
 class ASTRA_FANBEAMCT(Astra_OP):
-    """
-    """
+    """2D fan-beam CT operator using ASTRA `fanflat` geometry."""
     def create_proj_geom(self):
-        g = self.geometry # type CTGeon
+        g = self.geometry 
         det_count, det_spacing = g.W, g.pxW
         angles = g.angles
         return astra.create_proj_geom('fanflat', 
@@ -368,7 +385,7 @@ class ASTRA_FANBEAMCT(Astra_OP):
                                       g.DOD)    # ORIGIN-DET
     
 
-
+# ---- MODALITY REGISTRY (GEOMETRY → OPERATOR CLASS) -------------------------
 MODALITY_REGISTRY: Dict[OpMod, Type[GeometricOp]] = {
     OpMod.DCT:        ASTRA_Tomo,
     OpMod.CBCT:       ASTRA_CBCT,
