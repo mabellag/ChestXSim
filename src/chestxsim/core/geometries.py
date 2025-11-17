@@ -1,9 +1,39 @@
+"""
+Geometry definitions for ChestXsim.
+
+This module implements a modular system for describing X-ray acquisition
+geometries across different modalities (DCT, CBCT, 2D CT). The design is
+based on a small set of composable building blocks:
+
+- Geometry        : Base class defining detector properties and shared fields.
+- LinearTrajectory: Source motion along a straight line (used in DCT).
+- CircularTrajectory: Source rotation around the object (used in CBCT/CT2D).
+- FocusedBeam     : Models cone and fan-beam systems through SDD/DOD.
+
+Concrete geometries are created by combining the base class with the
+appropriate trajectory and beam mixins:
+
+- TomoGeometry     → Digital Chest Tomosynthesis (linear scan, cone beam)
+- CBCTGeometry     → 3D cone-beam CT
+- CT2DFanGeometry  → 2D fan-beam CT
+- CT2DParallelGeometry → 2D parallel-beam CT
+
+Each geometry enforces its modality, beam type, and dimensionality through
+ClassVar attributes. All classes support serialization via `to_dict()` and
+instantiation from dictionaries via `from_dict()`, enabling clean config-based
+pipeline construction.
+
+Factory helpers (`create_geometry`, `create_geometry_from_id`) are provided
+to instantiate the correct class from modality/beam pairs or simple IDs.
+"""
+
+
 from dataclasses import dataclass, asdict
 from typing import  Union, Tuple, List, ClassVar, Optional
 import numpy as np
 from enum import Enum
 
-
+# Supported acquisition modalities and beam models.
 class Modality(Enum):
     TOMO= "TOMO" 
     CT3D = "CT3D"
@@ -15,10 +45,15 @@ class BeamGeom(Enum):
     FANFLAT = "fanflat"
     PARALLEL = "parallel"
 
+
+# ---- BASE GEOMETRY CLASS -------------------------------------------------
 @dataclass
 class Geometry:
-    "Base class to define acquisition geometries"
-    # class varibales fixed  by class types
+    """Base class for all acquisition geometries.
+
+    Defines detector characteristics shared across all systems.
+    Concrete modalities extend this with trajectory and beam mixins.
+    """
     modality: ClassVar[Modality]
     beam: ClassVar[BeamGeom]
     is3d: ClassVar[bool]
@@ -34,7 +69,6 @@ class Geometry:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Geometry":
-        # validate class required arguments 
         """Construct from a plain dict (keys must match dataclass field names)."""
         return cls(**data)
 
@@ -76,12 +110,10 @@ class Geometry:
         if len(self.pixel_size) != expected:
             raise ValueError(f"pixel_size has {len(self.pixel_size)} values, expected {expected}.")
         
-
+# ---- TRAJECTORY AND BEAM MIXINS ---------------------------------------------------
 @dataclass(kw_only=True)
 class CircularTrajectory():
-    """
-    attributes for describing x-ray source moves in circular trajectory with detector
-    """
+    """Defines a circular source trajectory (CBCT, 2D CT)."""
     nprojs: int
     step_angle: Union[int, float] 
     init_angle: Union[int, float] 
@@ -92,16 +124,14 @@ class CircularTrajectory():
 
 @dataclass(kw_only=True)
 class LinearTrajectory:
-    """ 
-    attributes for describing x-ray source moves in a linear trajectory
-    """
+    """Defines a linear source trajectory (DCT)."""
     nprojs: int
     step_mm: float
 
 
 @dataclass(kw_only=True)
 class FocusedBeam:
-    """Attributes for geometries using a finite focal point (Cone/Fan)."""
+    """Cone / fan-beam model with finite focal point (SDD/DOD distances)."""
     SDD: float
     DOD: Optional[float]=None # Detector - Object Distance 
 
@@ -109,9 +139,10 @@ class FocusedBeam:
     def SOD(self) -> float: # Source - object       
         return self.SDD - self.DOD
 
-
+# ---- CONCRETE GEOMETRIES -------------------------------------------------
 @dataclass 
 class TomoGeometry(Geometry,LinearTrajectory,FocusedBeam):
+    """Digital Chest Tomosynthesis geometry (linear scan, cone beam)."""
     modality: ClassVar[Modality] = Modality.TOMO
     beam:  ClassVar[BeamGeom] = BeamGeom.CONE
     is3d: ClassVar[bool] = True
@@ -122,11 +153,9 @@ class TomoGeometry(Geometry,LinearTrajectory,FocusedBeam):
 
 
     def fit_to_volume(self, vol_dim_xyz, vx_xyz)->None:
-        """Personalize DOD based on this volume’s depth."""
+        """Set DOD based on actual volume depth, aligning detector to anatomy."""
         self.DOD = self.bucky + 0.5*vol_dim_xyz[2]*vx_xyz[2]
         
-    
-
     # @property
     # def magnification(self):
     #     # source-detector distance over source-object distance 
@@ -151,6 +180,7 @@ class TomoGeometry(Geometry,LinearTrajectory,FocusedBeam):
 
 @dataclass 
 class CBCTGeometry(Geometry,CircularTrajectory,FocusedBeam):
+    """3D cone-beam CT geometry."""
     modality: ClassVar[Modality] = Modality.CT3D
     beam: ClassVar[BeamGeom] = BeamGeom.CONE
     is3d: ClassVar[bool] = True
@@ -179,9 +209,9 @@ class CBCTGeometry(Geometry,CircularTrajectory,FocusedBeam):
 
         return [round(val, 2) for val in[x_mm, y_mm, z_mm]]
     
-
 @dataclass 
 class CT2DFanGeometry(Geometry, CircularTrajectory, FocusedBeam):
+    """2D fan-beam CT geometry."""
     modality: ClassVar[Modality]  = Modality.CT2D
     beam: ClassVar[BeamGeom] = BeamGeom.FANFLAT
     is3d: ClassVar[bool] = False
@@ -190,6 +220,7 @@ class CT2DFanGeometry(Geometry, CircularTrajectory, FocusedBeam):
 
 @dataclass 
 class CT2DParallelGeometry(Geometry, CircularTrajectory):
+    """2D parallel-beam CT geometry."""
     modality: ClassVar[Modality] = Modality.CT2D
     beam: ClassVar[BeamGeom] = BeamGeom.PARALLEL
     is3d: ClassVar[bool] = False
@@ -197,7 +228,7 @@ class CT2DParallelGeometry(Geometry, CircularTrajectory):
         self._validate_detector_dims()
     
 
-### ===== FACTORY METHOD TO CREATE GEOMETRIES ====
+# ---- FACTORY METHODS -----------------------------------------------------
 GEOMETRY_REGISTRY: dict = {
     (Modality.CT3D, BeamGeom.CONE): CBCTGeometry,
     (Modality.TOMO, BeamGeom.CONE): TomoGeometry,
@@ -213,10 +244,7 @@ GEOMETRY_ID = {
 }
 
 def create_geometry(modality: Modality, beam: BeamGeom, **kwargs)-> Geometry:
-    """
-    Factory function to create the correct Geometry instance 
-    based on modality and beam type.
-    """
+    """Instantiate geometry from modality/beam pair."""
     geom_class = GEOMETRY_REGISTRY.get((modality, beam))
     
     if geom_class is None:
@@ -233,6 +261,7 @@ def create_geometry(modality: Modality, beam: BeamGeom, **kwargs)-> Geometry:
     return instance
 
 def create_geometry_from_id(geom_id:str, **kwargs):
+    """Instantiate geometry by string identifier (e.g., 'DCT', 'CBCT')."""
     geom_id = geom_id.strip().upper()
     geom_class = GEOMETRY_ID.get(geom_id)
     if geom_class is None:
