@@ -174,21 +174,6 @@ class DicomReader(CTReader):
         metadata.id = target_folder
         return metadata 
     
-    # @staticmethod
-    # def read_volume(dicomFolder:str, shape: tuple, dtype: str):
-    #     """
-    #     Assemble the DICOM stack and return [x, y, z].
-    #     We sort slices by InstanceNumber; if missing, fallback to filename order.
-    #     """
-    #     volume = xp.zeros(shape=  shape, dtype = dtype)
-    #     files = sorted([f for f in os.listdir(dicomFolder)])
-    #     # check here instance number 
-    #     for ct_slice in files:
-    #         dicom = pydicom.dcmread(os.path.join(dicomFolder, ct_slice))
-    #         volume[:, :, dicom.InstanceNumber - 1] = xp.asanyarray(dicom.pixel_array)     
-        
-    #     return xp.swapaxes(volume, 0,1)
-
     @staticmethod
     def read_volume(dicom_folder: str, shape: tuple, dtype: str):
         """
@@ -324,10 +309,6 @@ class RawReader(CTReader):
                     md.endianness = str(value)
                 elif key == "order":
                     md.order = str(value).upper()
-                # elif key == "scale":
-                #     md.init["scale"] = float(value)
-                # elif key == "intercept":
-                #     md.init["intercept"] = float(value)
                 else:
                     # keep any extra fields for traceability
                     md.init[key] = value
@@ -338,12 +319,7 @@ class RawReader(CTReader):
         if not getattr(md, "voxel_size", None):
             raise ValueError(f"[RawReader] 'voxel_size' is required in {info_path}")
 
-        # # apply defaults for optionals if missing
-        # md.setdefault("dtype", "<f4")
-        # md.setdefault("endianness", None) 
-        # md.setdefault("order", "F")
-        # md.setdefault("scale", 1.0)
-        # md.setdefault("intercept", 0.0)
+   
         if log_path.exists():
             with log_path.open("r", encoding="utf-8") as f:
                 for raw in f:
@@ -475,195 +451,3 @@ class RawReader(CTReader):
                             print(f"[RawReader] Found tissue '{tissue_key}' at {case_path}")
         
         return tissue_folders
-
-    
-
-
-
-
-
-
-
-
-# class RawReader(CTReader):
-#     """
-#     RAW binary CT data reader (single .img + info.txt per case).
-
-#     Expected folder layout:
-#         <case_folder>/
-#             info.txt      # metadata driving the read (see keys below)
-#             log.txt       # optional pipeline log
-#             <case_name>.img
-
-#     Required `info.txt` keys:
-#         dim: (H, W, D)
-#         voxel_size: (sx, sy, sz)
-
-#     Optional `info.txt` keys (with defaults):
-#         dtype: "float32" | "uint16" | "<f4" | ">i16" | ...   (default "<f4")
-#         endianness: "<" | ">" | "="                          (ignored if dtype encodes it)
-#         order: "F" | "C"                                     (default "F")
-#         scale: float                                         (default 1.0)
-#         intercept: float                                     (default 0.0)
-#         id: str
-
-#     Notes:
-#         it allow loading multi-tissue volumes using the method `load_`
-#         it expects the folders as 
-#     """
-
-#     def load_case(self, folder) -> volumeData:
-#         _id = os.path.basename(folder)
-
-#         # Remove trailing _<number> if present (before .img)
-#         fileterd_id = re.sub(r'_\d+$', '', _id)
-      
-
-#         metadata_info_path = os.path.join(folder, "info.txt")
-#         metadata_log_path = os.path.join(folder, "log.txt")
-#         metadata = self.read_metadata(metadata_info_path, metadata_log_path)
-
-
-#         volume_path = os.path.join(folder, f"{fileterd_id}.img")
-#         volume = self.read_volume(volume_path, metadata.dim)
-
-#         return volumeData(volume, metadata)
-
-#     @staticmethod  
-#     def read_metadata(info_path: str, log_path) -> MetadataContainer:
-#         metadata = MetadataContainer()
-#         with open(info_path, "r") as f:
-#             for line in f:
-#                 line = line.strip()
-#                 if not line or ":" not in line:
-#                     continue
-
-#                 key, value = line.split(":", 1)
-#                 key = key.strip()
-#                 value = value.strip()
-
-#                 try:
-#                     value = eval(value)
-#                 except Exception:
-#                     pass
-
-#                 # Assign only known top-level fields
-#                 if key == "dim":
-#                     metadata.dim = value
-#                 elif key == "voxel_size":
-#                     metadata.voxel_size = value
-#                 # elif key == "units":
-#                 #     metadata.units = value
-#                 elif key == "id":
-#                     metadata.id = value
-#                 # elif key == "tissue_types":
-#                 #     metadata.tissue_types = value
-#                 else:
-#                      metadata.init[key] = value  # anything unknown goes into 'init'
-        
-#         # Read log.txt
-#         if os.path.exists(log_path):
-#             with open(log_path, "r", encoding="utf-8") as f:
-#                 for line in f:
-#                     if ":" in line and not line.startswith("***"):
-#                         step_name, details = line.strip().split(":", 1)
-#                         step_name = step_name.strip()
-#                         try:
-#                             step_details = eval(details.strip())
-#                         except Exception:
-#                             step_details = details.strip()
-#                         metadata.step_outputs[step_name] = step_details
-
-            
-
-#         return metadata
-
-    
-#     @staticmethod
-#     def read_volume(file_path:str, shape: tuple, dtype: str = '<f4'):
-#         with open(file_path, 'rb') as fid:
-#             data = xp.fromfile(fid, dtype)       
-#         return data.reshape(shape, order='F')
-    
-    
-#     def load_multi_tissue(self, base_path: Union[str, Path], 
-#                      case_id: str,
-#                      combine_method: str = "sum") -> volumeData:
-#         """
-#         Load and combine multiple tissue types by case ID.
-        
-#         Args:
-#             base_path: Path like "results/CT_converted/density" or "results/CT_converted" 
-#             case_id: Case identifier like "NODULO_S18_S20"
-#             tissues: List of tissues to load. If None, auto-detect from folders
-#             combine_method: "sum" or "stack"
-            
-#         Returns:
-#             Combined volumeData with multi-tissue volume
-#         """
-#         base_path = Path(base_path)
-        
-#         # Find tissue folders with the case ID
-#         tissue_folders = self.find_tissue_folders_by_id(base_path, case_id)
-       
-#         if not tissue_folders:
-#             raise ValueError(f"No tissue folders found for case {case_id} in {base_path}")
-        
-#         # Load all tissues
-#         loaded_tissues = []
-#         tissue_names = []
-#         reference_metadata = None
-        
-#         for tissue_name, folder_path in tissue_folders.items():
-#             tissue_data = self.load_case(folder_path)
-#             loaded_tissues.append(tissue_data.volume)
-#             tissue_names.append(tissue_name)
-            
-#             if reference_metadata is None:
-#                 reference_metadata = copy.deepcopy(tissue_data.metadata)
-        
-#         # Combine volumes
-#         if combine_method == "sum":
-#             combined_volume = sum(loaded_tissues)
-#         elif combine_method == "stack":
-#             loaded_tissues = [xp.squeeze(vol) for vol in loaded_tissues] 
-#             combined_volume = xp.stack(loaded_tissues, axis=-1) 
-#         else:
-#             raise ValueError(f"Unknown combine_method: {combine_method}")
-        
-#         # Update metadata
-#         combined_metadata = copy.deepcopy(reference_metadata)
-#         combined_metadata.tissue_types = tissue_names
-#         combined_metadata.dim = combined_volume.shape
-#         return volumeData(combined_volume, combined_metadata)
-    
-#     @staticmethod
-#     def find_tissue_folders_by_id(base_path: Path, case_id: str) -> Dict[str, Path]:
-#         """Find tissue folders containing the case ID"""
-#         tissue_folders = {}
-
-#         # look for any tissue folder containing case_id
-#         search_dirs = [base_path, base_path.parent]
-        
-#         for search_dir in search_dirs:
-#             if not search_dir.exists():
-#                 continue
-                
-#             for item in search_dir.iterdir():
-#                 if item.is_dir() and item.name in TISSUE_TO_FOLDER.values():
-#                     case_path = item / case_id
-#                     if case_path.exists():
-#                         # Find tissue key from folder name
-#                         tissue_key = next((k for k, v in TISSUE_TO_FOLDER.items() if v == item.name), item.name)
-#                         tissue_folders[tissue_key] = case_path
-#                         try:
-#                             print(f"[RawReader] Found tissue '{tissue_key}' at {case_path.resolve()}")
-#                         except Exception:
-#                             print(f"[RawReader] Found tissue '{tissue_key}' at {case_path}")
-        
-#         return tissue_folders
-
-    
-
-
-
