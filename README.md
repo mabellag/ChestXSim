@@ -124,8 +124,6 @@ The [midrc/](./midrc/) folder contains:
 
 To download the data, you will need a valid **MIDRC API Key** (`credentials.json`), which can be generated from your **MIDRC user profile**.
 
-For step-by-step instructions (requirements, how to run the `.exe`, and how downloads are organized), see [**midrc/README.md**](./midrc/README.md)
-
 
 ## 🚀 Usage
 ChestXsim simulation pipelines can be defined through a **configuration file**, which specifies the acquisition geometry, preprocessing steps, projection settings, and reconstruction parameters. Alternatively, you can assemble pipelines manually for full experimental control.
@@ -151,9 +149,9 @@ Before showing how to run a simulation, here are the core building blocks that C
 
 ### 📌 Ways to Use ChestXsim
 You can use the toolkit in three ways:  
-- [**From configuration files** (easiest)↗](#1-from-configuration-files)
-- [**Manual pipeline construction** (full control)↗](#2-manual-pipeline-construction)  
-- [**Standalone use of ASTRA WRAPPER** (just proj/backproj)↗](#3-manually-constructed-pipeline)
+- [**From configuration files** (easiest)](#1-from-configuration-files)
+- [**Manual pipeline construction** (full control)](#2-manual-pipeline-construction)  
+- [**Standalone use of ASTRA WRAPPER** (just proj/backproj)](#3-manually-constructed-pipeline)
 
 #### 1. From configuration files
 A minimal configuration for simulating a VolumeRAD-like DCT system at 120 kVp:
