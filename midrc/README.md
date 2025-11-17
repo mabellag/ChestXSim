@@ -33,6 +33,10 @@ Make sure you have **all these files in the same folder**:
    - Open a new console window to run the download and show the progress of each file.  
      *(Depending on the manifest size, this may take minutes or hours.)*
 5. When finished, the downloaded files will be located in the chosen destination folder.
+6. Unzip downloaded files. Some MIDRC files come compressed as `.zip`. You can extract all of them recursively with:
+   ```bash
+   python unzip.py <download_folder> <output_folder> 
+   ```
 
 ## Notes
 
