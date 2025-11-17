@@ -18,11 +18,10 @@ dependencies = [
   "pydicom>=3.0.1",
   "scikit-image>=0.21.0",
   "cupy-cuda12x>=13.3.0",
-  "torch==2.1.0",
-  "torchvision==0.16.0",
   "ipykernel>=6.0.0",
   # ASTRA: pip wheels OK on Linux/macOS; Windows users should use conda-forge
-  "astra-toolbox>=2.3; platform_system != 'Windows'"
+  "astra-toolbox>=2.3; platform_system != 'Windows'",
+  "fastai==2.7.17"
 ]
 
 [project.scripts]
