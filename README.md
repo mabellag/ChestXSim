@@ -3,11 +3,12 @@
 <img src="https://www.itnonline.com/sites/default/files/Screen%20Shot%202013-12-16%20at%209.40.03%20AM.png" width="300" />
 
 ## 🩻 Overview 
-**ChestXsim** is a research-oriented toolkit for simulating **Digital Chest Tomosynthesis (DCT)** from **chest CT** volumes. It provides the full workflow required for DCT simulation, covering preprocessing, X-ray projection simulation, and tomosynthesis reconstruction.
+**ChestXsim** is a research-oriented toolkit for simulating **Digital Chest Tomosynthesis (DCT)** from **chest CT** volumes. 
+It provides the full workflow required for DCT simulation, covering preprocessing, X-ray projection simulation, and tomosynthesis reconstruction.
 
-The framework relies on a **pipeline design**, enabling:
-- fully automated end-to-end execution, or  
-- modular step-by-step control for flexible experimentation.  
+The framework is built around a **pipeline architecture** that allows:
+- fully automated end-to-end simularion, or  
+- step-wise, customizable execution for flexible experimentation.  
 
 It supports **geometry-aware acquisition**, **physics-based projection models**, and **reconstruction utilities** to obtain paired CT–DCT datasets—ideal for deep learning applications and reproducible simulation workflows.
 
@@ -28,7 +29,7 @@ The repository also includes a **curated manifest** and helper tools for downloa
 
 - **CT preprocessing** — virtual positioning into DCT geometry, stretcher removal, tissue segmentation, and HU-to-attenuation or density conversion.
 
-- **Geometry-aware acquisition setup** — simulate projections using user-defined tomosynthesis geometries that represent real system configurations.
+- **Geometry-aware acquisition setup** — simulate projections using user-defined tomosynthesis geometries that represent real DCT system configurations.
 
 - **Physics-based projection models** — including beam hardening, inverse-square law effects, detector nonuniformities, and configurable noise models.
 
@@ -52,7 +53,7 @@ ChestXsim/
 │   ├── mac/              # Mass attenuation coefficients (MAC) (.mat)
 │   ├── spectra/          # X-ray spectra (.mat)
 │   └── executables/      # External tools (e.g. projection backends)
-├── midrc/                # MIDRC manifest + download helper
+├── midrc/                # MIDRC manifest + downloader
 ├── examples/             # Usage examples and notebooks 
 ├── src/
 │   └── chestxsim/        # Core Python package
@@ -69,11 +70,11 @@ ChestXsim/
 ```
 
 ## 📦 Installation
-You can install **ChestXsim** in two ways: from source (recommended for developers) or using Docker (for reproducible environments).
+You can install **ChestXsim** either from source code or using Docker.
 
 ### 1. Install from source
 #### Windows (recommended: conda + conda-forge)
-ASTRA Toolbox requires compiled binaries that are not available via PyPI.
+> **Note**: ASTRA Toolbox requires compiled binaries that are not available via PyPI.
 
 ```bash
 # Clone the repository
@@ -113,16 +114,28 @@ A Docker image will be provided as an alternative installation method requiring 
 This option is intended for non-developers.
 
 ## 🩺 MIDRC Data Download
-ChestXsim includes a curated manifest file to download publicly available chest CT datasets from the [MIDRC portal](https://data.midrc.org/). 
+
+ChestXsim includes a curated **MIDRC manifest** and a small Windows **downloader tool** to simplify fetching chest CT cases from the [MIDRC portal](https://data.midrc.org/) that are suitable for DCT simulation.
+
+The [midrc/](./midrc/) folder contains:
+- a manifest file (`MIDRC_manifest.json`) listing the collection of chest CT studies,
+- a lightweight graphical downloader that wraps the official **Gen3** client (`gen3-client.exe`),
+- documentation and helper files.
+
+To download the data, you will need a valid **MIDRC API Key** (`credentials.json`), which can be generated from your **MIDRC user profile**.
+
+For step-by-step instructions (requirements, how to run the `.exe`, and how downloads are organized), see [**midrc/README.md**](./midrc/README.md)
 
 
 ## 🚀 Usage
-ChestXsim simulation pipelines can be defined through a **configuration file**, which specifies the acquisition geometry, preprocessing steps, projection settings, and reconstruction parameters. Alternatively, pipelines can also be assembled manually for custom experiments.
+ChestXsim simulation pipelines can be defined through a **configuration file**, which specifies the acquisition geometry, preprocessing steps, projection settings, and reconstruction parameters. Alternatively, you can assemble pipelines manually for full experimental control.
 
-**The toolkit revolves around four core structures**:
+### 🔧 Before You Start: Core Concepts
+
+Before showing how to run a simulation, here are the core building blocks that ChestXsim uses internally:
 
 - **VolumeData** — the main data container for CT/DCT volumes + metadata.
-    ```python
+    ```bash
     VolumeData(
         volume: xp.ndarray,          # 3D or 4D CuPy array
         metadata: MetadataContainer  # voxel size, dims, ID, logs...
@@ -136,12 +149,13 @@ ChestXsim simulation pipelines can be defined through a **configuration file**, 
     and automatically updated `data.metadata` to mantain a full log of the simulation. 
 - **Operator (Wrapper Interface)** — to execute projection/backprojection operations. 
 
-**The toolkit can be used in three ways:**  
+### 📌 Ways to Use ChestXsim
+You can use the toolkit in three ways:  
 - [**From configuration files** (easiest)↗](#1-from-configuration-files)
 - [**Manual pipeline construction** (full control)↗](#2-manual-pipeline-construction)  
-- [**Standalone use of ASTRA WRAPPER**↗](#3-manually-constructed-pipeline)
+- [**Standalone use of ASTRA WRAPPER** (just proj/backproj)↗](#3-manually-constructed-pipeline)
 
-### 1. From configuration files
+#### 1. From configuration files
 A minimal configuration for simulating a VolumeRAD-like DCT system at 120 kVp:
 ```jsonc
 {
@@ -184,7 +198,7 @@ A minimal configuration for simulating a VolumeRAD-like DCT system at 120 kVp:
 
 ``` 
 
-**Run the pipeline via Python API**
+**Run via Python API**
 ```bash
 from chestxsim.pipeline import build_pipeline
 from chestxsim.io.readers import DicomReader
@@ -217,7 +231,7 @@ python -m chestxsim.cli.run_simulation \
 ```bash 
 ```
 
-### 2. Manual pipeline construction
+#### 2. Manual pipeline construction
 You can manually compose a pipeline using `.add(step, save=...)`:
 ```bash 
 from chestxsim.pipeline import Pipeline
@@ -240,7 +254,7 @@ processed = pipe.execute(ct_data)
 ```
 This gives you full control for research and experimentation. 
 
-### 3. Astra Operator (Built-in wrapper)
+#### 3. Astra Operator (Built-in wrapper)
 ChestXsim provides a **geometry-aware operator-wrapper** interface for forward and backward projection. All operator must expose the same API:
 ```bash 
 project(volume_xyz, vx_xyz) → returns projections (W, H, Angles)
@@ -277,8 +291,8 @@ projs = opt.project(input_volume, vx_xyz)
 recon = opt.backproject(projs, reco_dim_xyz, reco_vx_xyz)
 ```
 Internally, ASTRA_Tomo configures ASTRA’s 3D cone-beam geometry and dispatches CUDA-accelerated routines:
-- Forward projection → 'FP3D_CUDA'
-- Backprojection → 'BP3D_CUDA'
+- **Forward projection** → **'FP3D_CUDA'**
+- **Backprojection → 'BP3D_CUDA**'
 
 Chestxsim's steps `projection()`, `FDK()`, and `SART()` require a configured operator. These steps automatically pass voxel size, detector geometry, and physical spacing from metadata to operator’s forward and back-projection methods. When reconstruction is performed with `match_input=True`, the resulting tomosynthesis volume preserves the original CT dimensions in millimeters, while adopting the desired DCT voxel spacing, typically (1.25, 5.00, 1.25).
 
