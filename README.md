@@ -39,7 +39,7 @@ The repository also includes a **curated manifest** and helper tools for downloa
 
 - **Extensible projection engine wrapper interface** — unified abstraction layer for adding new projection or reconstruction operators and geometries; includes a concrete implementation using the ASTRA Toolbox adapted to DCT geometry.
 
-- **GPU acceleration** — CuPy support and CUDA-accelerated projectors through the ASTRA Toolbox.
+- **GPU acceleration** — CuPy support for array opearions and CUDA-accelerated projectors through the ASTRA Toolbox.
 
 - **Flexible usage** — accessible via both the Python API and command-line interface.
 
@@ -69,8 +69,14 @@ ChestXsim/
 
 ```
 
-## 📦 Installation
+## 📦 Installation 
 You can install **ChestXsim** either from source code or using Docker.
+The framework requires:
+
+- An NVIDIA GPU  
+- NVIDIA drivers compatible with **CUDA 12.x**  
+- A CUDA-enabled PyTorch build  
+- CuPy compiled for CUDA 12.x (`cupy-cuda12x`)
 
 ### 1. Install from source
 #### Windows (recommended: conda + conda-forge)
@@ -85,7 +91,10 @@ cd ChestXsim-Project
 conda create -n chestxsim python=3.10 -y
 conda activate chestxsim
 
-# Install dependencies
+# Install CUDA-enabled PyTorch (CUDA 12.1)
+pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu121
+
+# Install remaining dependencies
 pip install -r requirements.txt
 conda install conda-forge::astra-toolbox 
 
@@ -94,19 +103,32 @@ pip install -e .
 
 # Verify instalation 
 python -c "import chestxsim; print('ChestXsim successfully installed')"
+python -c "import torch; print('PyTorch CUDA:', torch.cuda.is_available())"
 ```
 
 #### Linux (pip-friendly installation)
 ```bash
+# Clone the repository
+git clone https://github.com/ChestXsim-Project.git
+cd ChestXsim-Project
+
+# Create and activate environment
 python3 -m venv chestxsim_env
 source chestxsim_env/bin/activate
 
-# Install dependencies and ChestXsim
+# Install CUDA-enabled PyTorch (CUDA 12.1)
+pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu121
+
+# Install remaining dependencies
 pip install -r requirements.txt
+
+# Install ChestXsim
 pip install -e .
 
-# Verify instalation 
+# Verify installation
 python -c "import chestxsim; print('ChestXsim successfully installed')"
+python -c "import torch; print('PyTorch CUDA:', torch.cuda.is_available())"
+
 ```
 
 ### 2. Docker (planned)
