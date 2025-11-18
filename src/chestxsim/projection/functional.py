@@ -3,8 +3,6 @@ from chestxsim.core.device import xp
 from chestxsim.core.geometries import Geometry, TomoGeometry
 from typing import Optional 
 
-
-
 def ensure_4d(volume: Any) -> Any:
     """ Converts 3D volume (H,W,D) to 4D volume (H,W,D,T) where T=1 """
     if volume.ndim == 3:
@@ -51,7 +49,6 @@ def clean_gpu(fn):
 
         return result
     return gpu_wrapper
-
 
 
 @apply_channelwise
@@ -141,81 +138,6 @@ def energyProjection(projections: Any,  # (W, H, ANGLES, T) #
         proj_BH[:, :, i] = proj_BH_i
 
     return proj_BH
-
-
-
-
-# def energyProjection(projections: Any,  # (W, H, ANGLES, T)
-#                      voxel_size: tuple[float, float, float],
-#                      mac: Any,  # (E_ENERGY, T) 
-#                      physics: Physics,
-#                      I0_map: Optional[Any]= None) -> Any:
-#     """
-#     Apply energy-dependent projection.
-
-#     Parameters:
-#     - projections: xp.ndarray of shape (W, H, ANGLES, T), density units per tissue.
-#     - voxel_size: voxel size in mm (tuple).
-#     - macs: xp.ndarray of shape (E_ENERGY, T), mass attenuation coefficients.
-#     - physics: Physics object containing spectrum, I0, effective_energy, poly_flag, etc.
-
-#     Returns:
-#     - proj_BH: xp.ndarray of shape (W, H, ANGLES, 1) raw xrays 
-
-#     Note:
-#     channel tissue order must be the same 
-#     """
-
-#     pixel_size = voxel_size[0] * 0.1  # convert mm to cm
-
-#     W, H, n_angles, n_tissues = projections.shape
-#     n_energies = len(physics.spectrum)
-
-#     # Ensure macs shape is (E_ENERGY, T)
-#     macs = xp.asarray(macs)
-#     if macs.shape != (n_energies, n_tissues):
-#         raise ValueError(f"macs shape {macs.shape} does not match (E_ENERGY, T) = ({n_energies}, {n_tissues})")
-
-#     proj_BH = xp.zeros((W, H, n_angles), dtype=projections.dtype)
-
-#     # Reshape spectrum for proper broadcasting: (n_energies,) -> (1, 1, n_energies)
-#     spectrum = xp.asarray(physics.spectrum).reshape(1, 1, n_energies)
-
-#     for i in range(n_angles):
-#         d_i = projections[:, :, i, :]  # (W, H, T) for angle i 
-
-#         if physics.poly_flag:
-#             # macs: (E_ENERGY, T)
-           
-#             # Expand dims for broadcasting:
-#             # d_i: (W, H, T) -> (W, H, T, 1)
-#             # macs_T_E: (T, E_ENERGY) -> (1, 1, T, E_ENERGY)
-#             # Result shape: (W, H, T, E_ENERGY)
-#             mu= d_i[:, :, :, None] * macs.T[None, None, :, :] * pixel_size
-
-#             # (W, H, T, E_ENERGY) -> (W, H, E_ENERGY)
-#             mu_sum = xp.sum(mu, axis=2)
-
-#             # Apply Beer-Lambert law and integrate over energies
-#             # spectrum: (1, 1, n_energies), exp(-mu_sum): (W, H, n_energies)
-#             # Result after broadcasting and sum: (W, H)
-#             if I0_map is None:
-#                 I0_i = physics.I0  # scalar
-#             else:
-#                 I0_i = I0_map[:, :, i].T  # matrix (W,H)
-                    
-#             proj_BH_i = I0_i * xp.sum(spectrum * xp.exp(-mu_sum), axis=2)
-#             proj_BH[:, :, i] = proj_BH_i
-
-#         else:
-#             # Monochromatic 
-#             eff_idx = int(physics.effective_energy) - 1
-#             mac_eff = macs[eff_idx, :]  # shape (T,)
-#             mu_total = xp.sum(d_i * mac_eff[None, None, :], axis=2) * pixel_size  # (W, H)
-#             proj_BH[:, :, i, 0] = physics.I0 * xp.exp(-mu_total)
-
-#     return proj_BH
-
 
 def get_distance_map(geometry: Geometry)-> Any:
     """
