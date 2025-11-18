@@ -9,7 +9,7 @@ that knows how to:
 for a given acquisition `Geometry`.
 """
 
-from chestxsim.core import Geometry, Modality, BeamGeom
+from chestxsim.core.geometries import Geometry, Modality, BeamGeom
 from chestxsim.core.device import xp
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple

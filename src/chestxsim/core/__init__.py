@@ -42,6 +42,6 @@ __all__ = [
     create_geometry_from_id,
     "create_geometry",
     "create_ge"
-    "Pipeline",
-    "build_pipeline",
+    # "Pipeline",
+    # "build_pipeline",
 ]
