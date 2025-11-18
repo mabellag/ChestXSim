@@ -1,15 +1,71 @@
 """
 Pipeline engine for ChestXsim.
 
-This module enables the creation and execution of modular simulation pipelines
-for Digital Chest Tomosynthesis. Pipelines can be constructed using a configuration
-dictionary in combination with `PROCESSING_STEP_REGISTRY`, or manually using
-the `add()` method to include callable steps.
+This provides the core execution framework that drives all simulation
+workflows in ChestXsim, including preprocessing, projection, physics modelling,
+and reconstruction. A `Pipeline` is a lightweight orchestrator that applies a
+sequence of modular processing steps—each operating on a `volumeData` object—
+and produces intermediate and final results in a reproducible manner.
 
-It operates on `volumeData` objects and supports geometry-aware operators with
-dynamic assignment of projection and reconstruction kernels (ASTRA, FuXSim, Raptor).
+Key Features
+------------
+• **Modular architecture**  
+  Each operation (bed removal, tissue segmentation, conversion to μ/density,
+  projection, noise modelling, FDK, etc.) is implemented as a small callable
+  class. The pipeline simply executes them sequentially.
+
+• **Configuration-driven execution**  
+  Pipelines can be constructed directly from a user-provided configuration
+  dictionary 
+
+• **Geometry-aware processing**  
+  Many steps require acquisition geometry (Tomo or CBCT). The pipeline injects
+  the correct `Geometry` instance automatically when needed.
+
+• **Dynamic operator creation**  
+  Projection and reconstruction kernels are created on
+  demand and cached for reuse. This allows switching backend operators at
+  runtime without modifying step implementations.
+
+• **Automatic metadata propagation**  
+  Each step updates the `volumeData.metadata` object, enabling full provenance
+  tracking and reproducibility of simulation workflows.
+
+• **Optional saving of intermediate states**  
+  Every step can persist its output through the `SaveManager`
+
+Usage
+-----
+Pipelines can be created manually:
+
+    p = Pipeline()
+    p.add(...)
+    p.add(...)
+    out = p.execute(input_volume)
+
+or automatically from a configuration file:
+
+    pipeline = build_pipeline(config)
+    output = pipeline.execute(ct_data)
+
+Structure
+---------
+• `PROCESSING_STEP_REGISTRY`  
+  Maps string identifiers from config files to processing step classes.
+
+• `Pipeline`  
+  - Holds the list of steps  
+  - Injects geometry/operators into steps  
+  - Runs the pipeline  
+  - Manages GPU memory and intermediate saves  
+
+• `build_pipeline`  
+  High-level entry point that:
+    - Creates geometry from the config  
+    - Instantiates the pipeline  
+    - Populates it with preprocessing, projection, and/or reconstruction steps  
+
 """
-
 
 import gc
 import inspect
@@ -27,7 +83,7 @@ from chestxsim.utility.interpolation import Interpolator
 
 
 
-# Maps configuration keywords to corresponding processing step classe
+#--- KEYWORDS MAPPING FOR STEP REGISTRY --------------
 PROCESSING_STEP_REGISTRY = {
     "bed_removal": BedRemover,
     "air_cropping": AirCropper,
@@ -40,12 +96,11 @@ PROCESSING_STEP_REGISTRY = {
     "noise_effect": NoiseEffect,
     "backprojection": BackProjector,
     "FDK": FDK, 
-    # "FDK-Fuxsim": FuximFDK,
-    # "RaptorFDK": RaptorFDK, 
     "CT_resampled": Interpolator
 
 }
 
+# --- PIPELINE CLASS --------------------------------------------------------
 class Pipeline:
     """
     Modular simulation pipeline that applies a sequence of processing steps
@@ -143,6 +198,8 @@ class Pipeline:
         self._log("Pipeline configuration completed.")
         return self
 
+
+# --- PIPELINE FACTORY / HELPERS 
 def build_pipeline(config: dict, mode: Optional[int]= None, output_folder: Optional[int]= None) -> Pipeline:
     """
     Builds a pipeline from configuration dictionary.
