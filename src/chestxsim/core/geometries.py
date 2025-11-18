@@ -33,7 +33,7 @@ from typing import  Union, Tuple, List, ClassVar, Optional
 import numpy as np
 from enum import Enum
 
-# Supported acquisition modalities and beam models.
+# ---- MODALITIES AND BEAM ENUMS ----------------------------------------
 class Modality(Enum):
     TOMO= "TOMO" 
     CT3D = "CT3D"
@@ -156,26 +156,26 @@ class TomoGeometry(Geometry,LinearTrajectory,FocusedBeam):
         """Set DOD based on actual volume depth, aligning detector to anatomy."""
         self.DOD = self.bucky + 0.5*vol_dim_xyz[2]*vx_xyz[2]
         
-    # @property
-    # def magnification(self):
-    #     # source-detector distance over source-object distance 
-    #     # tell us how many times larger the detector image is compared to the object 
-    #     SOD = self.SDD - self.bucky 
-    #     return  self.SDD / SOD
+    @property
+    def magnification(self):
+        # source-detector distance over source-object distance 
+        # tell us how many times larger the detector image is compared to the object 
+        SOD = self.SDD - self.bucky 
+        return  self.SDD / SOD
 
-    # @property 
-    # def fov(self)-> Tuple [float, float, float]:
-    #     u_mm = self.W* self.pxW  # detector width
-    #     v_mm= self.H* self.pxH  # detector height
+    @property 
+    def fov(self)-> Tuple [float, float, float]:
+        u_mm = self.W* self.pxW  # detector width
+        v_mm= self.H* self.pxH  # detector height
 
-    #     x_mm = u_mm/self.magnification
-    #     z_mm= v_mm/self.magnification
+        x_mm = u_mm/self.magnification
+        z_mm= v_mm/self.magnification
 
-    #     # compute y as the intersection between 
-    #     s= self.nprojs*self.nprojs  # source displacement in mm
-    #     y_mm = self.SDD/( 0.5*(s/z_mm)+1)
+        # compute y as the intersection between 
+        s= self.nprojs*self.nprojs  # source displacement in mm
+        y_mm = self.SDD/( 0.5*(s/z_mm)+1)
         
-    #     return [round(val, 2) for val in[x_mm, y_mm, z_mm]]
+        return [round(val, 2) for val in[x_mm, y_mm, z_mm]]
 
 
 @dataclass 
