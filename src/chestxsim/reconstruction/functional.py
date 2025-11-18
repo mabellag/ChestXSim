@@ -1,8 +1,6 @@
 
 from chestxsim.core import xp, Geometry
 from chestxsim.wrappers.astra import Astra_OP
-# from chestxsim.wrappers.fuxsim import FuXSim_OP
-# from chestxsim.wrappers.raptor import Raptor_OP
 from typing import Union, Optional, List, Tuple
 from chestxsim.utility.filters import *
 
