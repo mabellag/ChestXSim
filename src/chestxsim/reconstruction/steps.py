@@ -168,11 +168,12 @@ class FDK:
                 
 
         reco_dim = F.resolve_reco_dim(self.reco_dim_mm, self.reco_dim_px, self.reco_vx, self.opt.geometry)
+        # this is not optimal 
         if self.opt.geometry.DOD is None:
             try:
-                self.opt.geometry.fit_to_volume(md.find('ct_orig_shape'), md.find('ct_orig_vx'))
+                self.opt.geometry.fit_to_volume(md.find('ct_dim'), md.find('ct_vx'))
             except:
-                self.opt.geometry.DOD = self.opt.bucky + 0.35 # default callback average obese patient ()
+                self.opt.geometry.DOD = self.opt.geometry.bucky + 0.35 # default callback average obese patient ()
 
 
         result = F.fdk(
@@ -201,25 +202,25 @@ class FDK:
             result = result[:, :, start:stop]
 
             # add cropped air if present (air croped was saved as {'axis': a, 'crop_indices': [lo, hi]})
-            # air_info = None
-            # air_info = md.step_outputs["AirCropper"]
-            # if air_info is not None:
-            #     axis_air = int(air_info["axis"])
-            #     lo, hi = air_info["crop_indices"] 
+            air_info = None
+            air_info = md.step_outputs["AirCropper"]
+            if air_info is not None:
+                axis_air = int(air_info["axis"])
+                lo, hi = air_info["crop_indices"] 
                 
-            #     left_mm  = lo * init_vx[axis_air]
-            #     right_mm = (init_shape[axis_air] - hi) * init_vx[axis_air]
+                left_mm  = lo * init_vx[axis_air]
+                right_mm = (init_shape[axis_air] - hi) * init_vx[axis_air]
 
-            #     pad_left  = int((left_mm  / self.reco_vx[axis_air]))
-            #     pad_right = int((right_mm / self.reco_vx[axis_air]))
-            #     N = result.ndim  # likely 4 (X,Y,Z,C)
-            #     pad_spec = [(0, 0)] * N
-            #     pad_spec[axis_air] = (pad_left, pad_right)
+                pad_left  = int((left_mm  / self.reco_vx[axis_air]))
+                pad_right = int((right_mm / self.reco_vx[axis_air]))
+                N = result.ndim  # likely 4 (X,Y,Z,C)
+                pad_spec = [(0, 0)] * N
+                pad_spec[axis_air] = (pad_left, pad_right)
 
-            #     # pad with zeros (air)
-            #     result = xp.pad(result, pad_spec, mode="constant", constant_values=0)
-            #     pad_spec[axis_air] = (pad_left, pad_right)
-            #     result = xp.pad(result, pad_spec, mode="constant", constant_values=0)
+                # pad with zeros (air)
+                result = xp.pad(result, pad_spec, mode="constant", constant_values=0)
+                pad_spec[axis_air] = (pad_left, pad_right)
+                result = xp.pad(result, pad_spec, mode="constant", constant_values=0)
 
 
         md.dim = result.shape
