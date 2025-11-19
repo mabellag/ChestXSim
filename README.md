@@ -1,4 +1,4 @@
-# ChestXsim - A toolkit for Digital Chest Tomosynthesis (DCT) simulation
+# ChestXsim - An open-source framework for realistic chest X-ray tomosynthesis simulations
 
 <img src="https://www.itnonline.com/sites/default/files/Screen%20Shot%202013-12-16%20at%209.40.03%20AM.png" width="300" />
 
