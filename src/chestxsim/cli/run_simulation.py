@@ -111,6 +111,7 @@ def run(input_folder: str, config: str, mode: Optional[int] = None, output_folde
 
             print(f"\nProcessing: {root}")
             ct_data = reader.read(root)
+            print(ct_data.metadata)
 
             start_time = time.time()
             result = pipeline.execute(ct_data)
