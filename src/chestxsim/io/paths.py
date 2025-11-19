@@ -55,8 +55,8 @@ STEP_TO_FOLDER = {
     "RaptorFDK": "RaptorFDK",
     "FuximFDK": "FuximFDK",
     "FDK": "FDK",
-    "Interpolator": "CT_interpolated"
-    
+    "Interpolator": "CT_interpolated",
+    "VolumeRotate":"CT_rotated"
 }
 
 UNITS_TO_FOLDER = {

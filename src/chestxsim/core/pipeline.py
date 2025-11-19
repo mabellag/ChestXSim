@@ -96,7 +96,8 @@ PROCESSING_STEP_REGISTRY = {
     "noise_effect": NoiseEffect,
     "backprojection": BackProjector,
     "FDK": FDK, 
-    "CT_resampled": Interpolator
+    "CT_resampled": Interpolator,
+    "CT_rotated": VolumeRotate, 
 
 }
 
