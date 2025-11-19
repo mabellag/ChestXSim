@@ -191,12 +191,14 @@ class Pipeline:
                     poly_flag = step_config.get("poly_flag", False),
                      effective_energy  = step_config.get("effective_energy", None),                                                                
                 )
+                source = "polychromatic" if step_config.get("poly_flag") else "monochromatic"
+                self._log(f'Initialized {source} X-ray source at {step_config.get("voltage")}')
 
             save_flag = step_config.get("save", False)
             self.add(cls(**params), save=save_flag)
             self._log(f"Added step: {cls.__name__} (save={save_flag})")
 
-        self._log("Pipeline configuration completed.")
+        # self._log("Pipeline configuration completed.")
         return self
 
 
@@ -242,6 +244,7 @@ def build_pipeline(config: dict, mode: Optional[int]= None, output_folder: Optio
         else:
             raise ValueError(f"[Pipeline] Invalid mode '{mode}'. Expected 0 (preprocessing), 1 (projection), or 2 (reconstruction).")
 
+    print("[Pipeline] Pipeline configuration completed.")
     return pipeline
 
 

@@ -33,11 +33,6 @@ Dependencies:
 """
 
 import sys, os
-# PROJECT_ROOT = r"D:\bhermosi\chestxsim-project" 
-# SRC = os.path.join(PROJECT_ROOT, "src")
-# if SRC not in sys.path:
-#     sys.path.insert(0, SRC)
-
 import time 
 import os   
 import argparse
@@ -86,12 +81,12 @@ def run(input_folder: str, config: str, mode: Optional[int] = None, output_folde
 
     # MULTI-TISSUE INPUT CASE:
     if is_multitissue_root(input_path):
-        print(f"Detected multi-tissue input structure under: {input_path}")
+        print(f"\nDetected multi-tissue input structure under: {input_path}")
         reader = RawReader()
         case_ids = find_case_ids_across_tissues(input_path)
 
         for case_id in sorted(case_ids):
-            print(f"Processing multi-tissue case: {case_id}")
+            print(f"\nProcessing multi-tissue case: {case_id}")
             try:
                 ct_data= reader.load_multi_tissue(input_path, case_id, combine_method="stack")
                 start_time = time.time()
