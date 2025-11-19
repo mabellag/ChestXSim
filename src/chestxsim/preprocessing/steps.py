@@ -221,7 +221,7 @@ class TissueSegmenter:
                  save_masks: Optional[bool] = False):
         
         self.bone_threshold = threshold
-        self.model_path = model_path or os.path.join("..", "materials", "models", "model_fine_tune_vf_2.pt")
+        self.model_path = model_path or MODELS_DIR/ "model_fine_tune_vf_2.pt"
         self.tissue_types = tissue_types
         self.save_masks = save_masks
         self.tissue_masks = tissue_masks
