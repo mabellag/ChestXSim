@@ -1,22 +1,4 @@
 
-# from typing import Tuple, Union, List, Optional, Any
-
-# import os
-# import torch
-# from torchvision import transforms
-# import torch.utils.dlpack
-# from skimage.morphology import ball
-
-# from chestxsim.utility.energy_computation import calculate_effective_mac, interpolate_effective_energy
-# from chestxsim.core.data_containers import Geometry
-# from chestxsim.core.device import xp, ndi
-
-# import cupy as cp # corregir esto
-
-# from chestxsim.utility.ops_utils  import ensure_4d, apply_channelwise
-
-# import torch.nn.functional 
-
 """Low-level array ops used by preprocessing steps."""
 from typing import Tuple, Union, List, Optional, Any
 import os 
@@ -48,7 +30,7 @@ def get_stretcher_mask_dl(volume: Any, batch_size:int=1, model_path: str= None)-
     is_cupy = isinstance(volume, cp.ndarray)
     
     # load model 
-    model_path =  model_path or os.path.join("..", "materials", "models", model_path)
+    # model_path =  model_path or os.path.join("..", "materials", "models", model_path)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = torch.load(model_path, map_location=device)
     model.eval()
@@ -88,7 +70,8 @@ def get_stretcher_mask_dl(volume: Any, batch_size:int=1, model_path: str= None)-
 
             # CuPy/Numpy -> Torch
             if is_cupy:
-                tensor = torch.utils.dlpack.from_dlpack(slices)            # GPU tensor
+                # tensor = torch.utils.dlpack.from_dlpack(slices)            # GPU tensor
+                tensor = torch.from_dlpack(slices)
             else:
                 tensor = torch.tensor(slices, dtype=torch.float32)
 
