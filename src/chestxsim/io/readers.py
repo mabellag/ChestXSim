@@ -164,16 +164,22 @@ class DicomReader(CTReader):
         metadata.dtype = str(first_dicom.pixel_array.dtype)
        
         # store id 
-        parts = dicomFolder.split(os.sep)
+        p = Path(dicomFolder)
+        print(p)
+        parts = p.parts
+        print(parts)
         if "inputs" in parts:
-            index = parts.index("inputs")
-            target_folder = "_".join(parts[index + 1:])
+            idx = parts.index("inputs")
+            #everything below "inputs" becomes the case id, joined by "_"
+            target_folder = "_".join(parts[idx + 1:])
+            
         else:
-            target_folder = None
-        
+            # fallback: use the last component (leaf folder)
+            target_folder = p.name
+
         metadata.id = target_folder
-        return metadata 
-    
+        return metadata
+
     @staticmethod
     def read_volume(dicom_folder: str, shape: tuple, dtype: str):
         """
