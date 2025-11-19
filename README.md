@@ -326,13 +326,13 @@ Chestxsim's steps `projection()`, `FDK()`, and `SART()` require a configured ope
 
 ### 4. Guides and Notebooks 
 See the full tutorials:
-- [Core Structures](./examples/notebooks/0.%20Data_containers.ipynb)  
-- [I/O Management](./examples/notebooks/1.%20CT%20Readers.ipynb)
-- [Pipeline](./examples/notebooks/5.%20Pipeline.ipynb)
-- [ASTRA Wrapper](./examples/notebooks/6.%20Astra%20Wrapper.ipynb)  
-- [Preprocessing Module](./examples/notebooks/2.%20Preprocessing.ipynb)  
-- [Projection Module](./examples/notebooks/3.%20Projection.ipynb)
-- [Reconstruction Module](./examples/notebooks/4.%20Preprocessing.ipynb)
+- [Core Structures](./examples/0.%20Data_containers.ipynb)  
+- [I/O Management](./examples/1.%20CT%20Readers.ipynb)
+- [Pipeline](./examples/5.%20Pipeline.ipynb)
+- [ASTRA Wrapper](./examples/6.%20Astra%20Wrapper.ipynb)  
+- [Preprocessing Module](./examples/2.%20Preprocessing.ipynb)  
+- [Projection Module](./examples/3.%20Projection.ipynb)
+- [Reconstruction Module](./exampless/4.%20Preprocessing.ipynb)
 
 
 ## 🧠 Deep Learning Utilities
