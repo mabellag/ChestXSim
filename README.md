@@ -234,18 +234,26 @@ ct = DicomReader(convert_to_HU=True, clip_values=[-1000, 3000]).read(
 )
 
 # Build the full simulation pipeline from config
-pipe = build_pipeline(cfg, output_folder="results")
+pipe = build_pipeline(cfg, mode = None, output_folder="results")
 
 # Execute all steps: preprocessing → projection → reconstruction
 dct_out = pipe.execute(ct)
-
 ```
+The pipeline builder supports *partial execution* via the `mode` flag.  
+This lets you reuse previous results:  
+> - `mode=0` → preprocessing only  
+> - `mode=1` → projection only  
+> - `mode=2` → reconstruction only  
+
+This is especially useful when preprocessing is done once and reused to generate multiple projection or reconstruction variants.
+
 **Run via CLI**
 ```bash 
-python -m chestxsim.cli.run_simulation \
-    --config settings/dct_example.json \
-    --input inputs/Case_001/DICOM \
-    --out results/
+run_simulation \
+    --input inputs/NODULO/S18/S20 \
+    --config settings/volumeRAD.json \
+    --output results/
+
 ```
 **Run via Docker**
 ```bash 
