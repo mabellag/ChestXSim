@@ -5,50 +5,18 @@ from typing import Union, Optional, List, Tuple
 from chestxsim.utility.filters import *
 
 
-def ensure_4d(volume: Any) -> Any:
-    """ Converts 3D volume (H,W,D) to 4D volume (H,W,D,T) where T=1 """
-    if volume.ndim == 3:
-        volume = volume[..., xp.newaxis]  # add tissue dimension at the end
-    return volume
-
-def apply_channelwise(fn):
-    """
-    Decorator that applies a function channel-wise on a 4D volume.
-
-    It assumes that the first argument to the function is a 3D or 4D volume.
-    If the input is 3D (H, W, D), it is first expanded to 4D (H, W, D, 1).
-    The function is then applied separately to each 3D channel (volume[..., i]),
-    and the results are stacked along the last axis to return a 4D result.
-
-    This is useful for functions that are defined for single-channel volumes,
-    but need to be applied to multi-channel (e.g., multi-tissue) data.
-
-    Args:
-        fn (Callable): A function that accepts a 3D volume as its first argument,
-                       followed by any number of positional and keyword arguments.
-
-    Returns:
-        Callable: A wrapped version of the input function that supports 4D input.
-    """
-    def channelwise_wrapper(volume, *args, **kwargs):
-        volume = ensure_4d(volume)
-        return xp.stack(
-            [fn(volume[..., i], *args, **kwargs) for i in range(volume.shape[-1])],
-            axis=-1
-        )
-    return channelwise_wrapper
-
-
 def resolve_reco_dim(reco_dim_mm, reco_dim_px, reco_vx, geometry=None):
-    # 1) explicit px
+    """
+    Resolve the reconstruction volume dimensions using priority:
+    (1) explicit pixel size, (2) explicit mm size, (3) geometry FOV
+    """
+
     if reco_dim_px is not None:
         return tuple(int(v) for v in reco_dim_px)
-
-    # 2) explicit mm
+    
     if reco_dim_mm is not None and reco_vx is not None:
         return tuple(int(reco_dim_mm[i] / reco_vx[i]) for i in range(3))
 
-    # 3) geometry FOV (fallback)
     if geometry is not None:
         if reco_vx is None:
             raise ValueError("resolve_reco_dim: reco_vx required when using geometry FOV.")
@@ -58,16 +26,9 @@ def resolve_reco_dim(reco_dim_mm, reco_dim_px, reco_vx, geometry=None):
     return None
 
 
-@apply_channelwise
-def backProject(opt,
-            projections:Any, 
-            reco_dim:Tuple[int, int, int],
-            reco_vx_size:Tuple[float, float, float],  # reco voxel size
-            ):
-    return opt.backproject(projections,reco_dim, reco_vx_size)
 
-@apply_channelwise
 def sample_volume(volume, nprojs, sampling_rate):
+    """ downsample projection angles to simulate limited span angle acquisitions"""
     if nprojs*sampling_rate <= volume.shape[2]:
         projs = projs[:,:,:nprojs*sampling_rate]
         projs = projs[:, :, ::sampling_rate] 
@@ -80,122 +41,153 @@ def apply_filter(projections: Any,
                  max_freq: float = 0.5,
                  padding: bool = True,
                  **kwargs):
-    """Apply filter to projections, currently only ramp is supported."""
+    """
+    Apply a 1D frequency-domain filter to each projection.
+
+    Args:
+        projections (array): Input projection data.
+        filter_type (str): Filter type, currently only "ramp".
+        offset_filter (float): Low-frequency offset for numerical stability.
+        axis (int): Axis along which to apply filtering.
+        max_freq (float): Normalized frequency cutoff (0–0.5).
+        padding (bool): Whether to pad before FFT.
+    """
     if filter_type == "ramp":
         return ramp_filter(projections, axis, max_freq, offset_filter, padding)
     else:
         raise NotImplementedError(f"Filter '{filter_type}' not implemented.")
 
-@apply_channelwise
-def fdk(projections: Any,
-        opt,
+
+def fdk(opt,
+        projections: Any,
         reco_dim: Optional[Tuple[int, int, int]] = None,
         reco_vx_size: Optional[Tuple[float, float, float]] = None,
         filter_type: Optional[str] = "ramp",
-        offset_filter: float = 0.05,
-        axis: int = 0,
+        offset_filter: float = 0.005,
+        axis: int = 1,
         max_freq: float = 0.5,
         padding: Optional[bool] = True,
         ) -> Any:
     """
-    FDK reconstruction -builtin
-    
-    Automatically applies filtering for Astra. 
-    Skips filtering for FuXSim and Raptor which apply filtering by  configuring parameters .
-    """
+    FDK reconstruction.
 
-    if isinstance(opt, Astra_OP):
-        filtered = apply_filter(projections,
+    Applies a 1D filter to each projection, backprojects the result, and
+    normalizes by the number of projections.
+
+    Parameters
+    ----------
+    opt : object
+        Operator with backproject().
+    projections : array
+        Projection data (nu, nv, n_proj).
+    reco_dim : tuple (nx, ny, nz)
+        Output volume size.
+    reco_vx_size : tuple (sx, sy, sz)
+        Output voxel size in mm.
+    filter_type : str
+        Projection filter ("ramp").
+    offset_filter : float
+        Small offset added to the filter.
+    axis : int
+        Detector axis to filter along.
+    max_freq : float
+        Maximum normalized frequency.
+    padding : bool
+        Whether to pad before FFT.
+
+    Returns
+    -------
+    array
+        Reconstructed volume (nx, ny, nz).
+    """
+ 
+    filtered = apply_filter(projections,
                                 filter_type=filter_type,
                                 offset_filter=offset_filter,
                                 axis=axis,
                                 max_freq=max_freq,
                                 padding=padding)
-    else:
-        # For FuXSim and Raptor, projections are assumed pre-filtered
-        filtered = projections
+    fdk = opt.backproject(filtered, reco_dim, reco_vx_size)
+    norm_fdk = fdk/opt.geometry.nprojs
+    return norm_fdk
 
-    return opt.backproject(filtered, reco_dim, reco_vx_size)
-
-
-# def sart(opt, 
-#          projections: Any,
-#          reco_dim: Tuple[int, int, int],
-#          reco_vx_size: Tuple[float, float, float],
-#          input_vol_size: Tuple[float, float, float],
-#          input_vx_size:Tuple[float, float, float],
-#          lamb = 1, 
-#          n_iter = 20, 
-#          eps = 1e-10,
-#          x_0 = None):
+def sart(opt, 
+         projections: Any,
+         reco_dim: Tuple[int, int, int],
+         reco_vx_size: Tuple[float, float, float],
+         lamb = 1, 
+         n_iter = 20, 
+         eps = 1e-10,
+         x_0 = None):
     
-#     r"""Applies SART algorithm to reconstruct the an image 
+    """Applies SART algorithm to reconstruct the an image
+    it solves  
+        x_{k+1} = x_k + λ * D * Aᵀ * W * (p - A x_k)
+
+    where:
+        - A is the projection operator (opt.project)
+        - Aᵀ is its adjoint / backprojection (opt.backproject)
+        - W = 1 / (A 1)    
+        - D = 1 / (Aᵀ 1)  
+        - λ is the relaxation parameter (step size)
+
     
-#     SART aims to solve
+    Parameters
+    ----------
+    opt : object
+        Projection operator with methods:
+            - opt.project(volume, vx_size)
+            - opt.backproject(projections, reco_dim, reco_vx_size)
+    projections : array-like
+        Measured projections p.
+    reco_dim : tuple of int
+        Output volume dimensions (nx, ny, nz).
+    reco_vx_size : tuple of float
+        Voxel size of the reconstruction grid.
+    input_vol_size : tuple of int
+        Size of the input volume grid used to compute A1 via ones(input_vol_size).
+    lamb : float
+        Relaxation parameter (typically between 0.1 and 1.0).
+    n_iter : int
+        Maximum number of iterations.
+    eps : float
+        Stopping tolerance based on the normalized projection error.
+    x_0 : array-like or None
+        Initial reconstruction. If None, initialized to zeros on the reconstruction grid.
 
-#     .. math::
-#         out = x = \max_{x \in \mathbb{R}^N}} \|Ax - p\|^2_W
-
-#     where A is a FUXIM linear (projection) operator defined by F_OP.forward_operator, x is the target image, 
-#     and p = meas are the projections. SART solves this by applying a sort of preconditioned gradient descent 
-
-#     .. math::
-#         x^{(k+1)} = x^{(k)} - \lambda D A^\top W (Ax^{(k)} - p ) ,
+    Returns
+    -------
+    x : array
+        The reconstructed volume on the reconstruction grid.
+    """
     
-#     where :math:`\lambda` is the step size of the gradient descent
-    
-#     .. math::
-#         D = \text{diag}(\frac{1}{A^\top 1}), and W = \text{diag}(\frac{1}{A1})
+    if x_0 is None :
+        x = xp.zeros(reco_dim)
+    else : 
+        x = x_0
 
-#     Args:
-#         F_OP : Fuxim Operator. Must have implemented forward_operator and adjoint_operator properly
-#         meas : Numpy array containing the raw measurements
-#         lamb : Step size of the SART algorithm
-#         n_iter : Maximum number of iterations for SART Algorithm.
-#         eps : Stopping criterion. When the maximum correction is below eps, then the algorithm stops
-#         x_0: Initial iterate of the SART algorith 
-#                 If ``None``, will initialize as a zero array of size F_OP.reco_dim         
+    A1 = 1/opt.project(xp.ones(reco_dim), reco_vx_size)
+    A1 = xp.where(xp.isfinite(A1), A1, 0.0)
+  
+    At1 = 1 / opt.backproject(xp.ones(projections.shape, dtype=xp.float32), reco_dim, reco_vx_size)
+    At1 = xp.where(xp.isfinite(At1), At1, 0.0)
+   
 
-#     Shape:
-#         - Input: :math:`(F_{OP}.proj_size[0], F_{OP}.proj_size[1], N_{Proj})` or :math:`(F_{OP}.proj_size, N_{Proj})`.
-#         - Output: :math:`F_{OP}.reco_dim`, 
-        
-#     Examples::
+    norm_err = 2 * eps * xp.ones(projections.shape, dtype=xp.float32)
+    iiter = 0
 
-#         >>> opt =  FuXSim_Tomo()
-#         >>> # Give opt the geometry parameters
-#         >>> meas = opt.forward_operator(GT);
-#         >>> f = opt.FDK(meas);
-#         >>> lamb = 1;
-#         >>> f_sart = SART(opt, meas, lamb, n_iter = 5, eps= 1e-10, x_0 = f)
-#     """
-#     if x_0 is None :
-#         x = xp.zeros(reco_dim)
-#     else : 
-#         x = x_0
+    while iiter < n_iter and xp.amax(xp.abs(norm_err)).get() > eps:
+      
+        norm_err = A1 * (opt.project(x, reco_vx_size) - projections)
+        corr_norm = At1 * opt.backproject(norm_err, reco_dim, reco_vx_size)
+        print(f"[SART] Iter {iiter}: Mean correction={xp.mean(xp.abs(corr_norm)).get():.6f}")
 
-#     A1 = 1/opt.forward_operator(cp.ones(input_vol_size), input_vx_size)
-#     A1 = cp.where(cp.isfinite(A1), A1, 0.0)
+        x = x - lamb * corr_norm
+        iiter += 1
 
-#     At1 = 1 / opt.adjoint_operator(cp.ones(projections.shape, dtype=cp.float32), reco_dim, reco_vx_size)
-#     At1 = cp.where(cp.isfinite(At1), At1, 0.0)  # Replace inf/nan with 0
-#     # Will return some inf values, give us a warning, we deal with the inf
-#     # By dealing with the infs here, we get rid of all potential problems.
-    
+    print(f"[SART] Done. Total iterations: {iiter}")
+    return x
 
-#     norm_err = 2 * eps * cp.ones(projections.shape, dtype=cp.float32)
-#     iiter = 0
-
-#     while iiter < n_iter and cp.amax(cp.abs(norm_err)).get() > eps:
-#         norm_err = A1 * (opt.forward_operator(x, input_vx_size) - projections)
-#         corr_norm = At1 * opt.adjoint_operator(norm_err, reco_dim, reco_vx_size)
-#         print(f"[SART] Iter {iiter}: Mean correction={cp.mean(cp.abs(corr_norm)).get():.6f}")
-
-#         x = x - lamb * corr_norm
-#         iiter += 1
-
-#     print(f"[SART] Done. Total iterations: {iiter}")
-#     return x
 
 
 
