@@ -64,3 +64,8 @@ build/
 dist/
 *.pyc
 *.pyo
+
+.devcontainer/
+.vscode/
+borrar/
+
