@@ -165,9 +165,9 @@ class DicomReader(CTReader):
        
         # store id 
         p = Path(dicomFolder)
-        print(p)
+        # print(p)
         parts = p.parts
-        print(parts)
+        # print(parts)
         if "inputs" in parts:
             idx = parts.index("inputs")
             #everything below "inputs" becomes the case id, joined by "_"
@@ -419,7 +419,7 @@ class RawReader(CTReader):
         
         # Combine volumes
         if combine_method == "sum":
-            combined_volume = sum(loaded_tissues)
+            combined_volume = sum(loaded_tissues).squeeze(-1)
         elif combine_method == "stack":
             loaded_tissues = [xp.squeeze(vol) for vol in loaded_tissues] 
             combined_volume = xp.stack(loaded_tissues, axis=-1) 
