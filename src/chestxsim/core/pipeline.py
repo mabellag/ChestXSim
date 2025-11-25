@@ -72,7 +72,7 @@ import inspect
 from typing import Union, Optional, List, Callable, Any
 
 from chestxsim.core.device import xp
-from chestxsim.io import SaveManager
+from chestxsim.io import SaveManager, RESULTS_DIR
 from chestxsim.core.geometries import *
 from chestxsim.core.data_containers import *
 from chestxsim.preprocessing.steps import *
@@ -80,8 +80,6 @@ from chestxsim.projection.steps import *
 from chestxsim.reconstruction.steps import *
 from chestxsim.wrappers import *
 from chestxsim.utility.interpolation import Interpolator
-
-
 
 #--- KEYWORDS MAPPING FOR STEP REGISTRY --------------
 PROCESSING_STEP_REGISTRY = {
@@ -94,7 +92,6 @@ PROCESSING_STEP_REGISTRY = {
     "projection": Projection,
     "Physics_effect": PhysicsEffect,
     "noise_effect": NoiseEffect,
-    "backprojection": BackProjector,
     "FDK": FDK, 
     "CT_resampled": Interpolator,
     "CT_rotated": VolumeRotate, 
@@ -107,7 +104,7 @@ class Pipeline:
     Modular simulation pipeline that applies a sequence of processing steps
     to a `volumeData` object. Steps can be added manually or via a config.
     """
-    def __init__(self, steps: Optional[List[Callable]] = None, base_save_dir: str = "results"):
+    def __init__(self, steps: Optional[List[Callable]] = None, base_save_dir= None ):
         self.steps = steps if steps is not None else []
         self.save_manager = SaveManager(base_save_dir)
         self.geometry: Optional[Geometry] = None
