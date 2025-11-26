@@ -253,8 +253,8 @@ def extend_volume(volume: Any, ext_vals_mm: List[Union[int, float]], voxel_size:
     ext_up_mm, ext_down_mm = ext_vals_mm
             
     # Convert mm to slices 
-    ext_up = int(ext_up_mm / voxel_size[2])
-    ext_down = int(ext_down_mm / voxel_size[2])
+    ext_up = int(round(ext_up_mm / voxel_size[2]))
+    ext_down = int(round(ext_down_mm / voxel_size[2]))
 
     # print(ext_up, ext_down)
     
