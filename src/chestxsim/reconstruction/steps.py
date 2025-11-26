@@ -3,6 +3,7 @@ import chestxsim.reconstruction.functional as F
 from typing import Union, Tuple, Optional 
 from chestxsim.utility.filters import *
 import copy 
+import math 
 
 import inspect
 
@@ -56,13 +57,17 @@ class _BaseReconstructionStep:
         init_shape = md.find("ct_dim")
         init_vx = md.find("ct_vx")
         up_mm, down_mm = md.find("extension_mm")
+        print(init_shape)
+        print(init_vx)
+        print(up_mm, down_mm)
 
         reco_dim_mm = [
-            init_shape[0] * init_vx[0],
-            init_shape[1] * init_vx[1],
-            init_shape[2] * init_vx[2] + up_mm + down_mm,
+            round(init_shape[0] * init_vx[0]),
+            round(init_shape[1] * init_vx[1]),
+            round(init_shape[2] * init_vx[2] + up_mm + down_mm),
         ]
         self.reco_dim_mm = tuple(reco_dim_mm)
+        print( self.reco_dim_mm)
 
     def _prepare_reco_grid(self, md):
         """
@@ -97,15 +102,16 @@ class _BaseReconstructionStep:
             return result
 
         up_mm, down_mm = md.find("extension_mm")
-
+        print("mm", up_mm,down_mm)
         # Convert mm -> slices in reconstructed grid
-        n_up = int(up_mm / self.reco_vx[2])
-        n_down = int(down_mm / self.reco_vx[2])
+        n_up = xp.round(up_mm / self.reco_vx[2])
+        n_down = xp.round(down_mm / self.reco_vx[2])
+        print(n_up, n_down)
 
         Z = result.shape[2]
-        start = n_up
-        stop = Z - n_down
-        return result[:, :, start:stop]
+        # start = n_up
+        # stop = Z - n_down
+        return result[:, :, n_up:-n_down]
 
     def _update_metadata(self, md, result):
         """
