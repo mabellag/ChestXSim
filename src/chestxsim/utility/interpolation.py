@@ -9,6 +9,7 @@ def interpolate_funct(
     original_voxel_size: Tuple[float, float, float],
     new_voxel_size: Tuple[float, float, float],
     target_nb_pixels: Tuple[int, int, int],
+    fill_value:int = 0
 ):
     """
     Interpolate a 3D NumPy volume onto a new voxel grid using SciPy (CPU).
@@ -34,7 +35,7 @@ def interpolate_funct(
 
     # Create the interpolation function with  interpolation
     interp_function = interpolate.RegularGridInterpolator(
-        (x, y, z), img, method='linear', bounds_error=False, fill_value=0)
+        (x, y, z), img, method='linear', bounds_error=False, fill_value=fill_value)
 
     # Create the meshgrid for the new volume
     x_new_mesh, y_new_mesh, z_new_mesh = np.meshgrid(
