@@ -269,17 +269,13 @@ class RawReader(CTReader):
 
     def load_case(self, folder) -> volumeData:
         _id = os.path.basename(folder)
-
-        # Remove trailing _<number> if present (before .img)
-        fileterd_id = re.sub(r'_\d+$', '', _id)
-      
-
         metadata_info_path = os.path.join(folder, "info.txt")
         metadata_log_path = os.path.join(folder, "log.txt")
         metadata = self.read_metadata(metadata_info_path, metadata_log_path)
 
+        volume_id = getattr(metadata, "id", None) or _id
 
-        volume_path = os.path.join(folder, f"{fileterd_id}.img")
+        volume_path = os.path.join(folder, f"{volume_id}.img")
         volume = self.read_volume(volume_path, metadata.dim)
 
         return volumeData(volume, metadata)
