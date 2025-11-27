@@ -1,4 +1,6 @@
-from chestxsim.core  import  volumeData, xp, Geometry
+from chestxsim.core.data_containers  import  volumeData
+from chestxsim.core.device import xp
+from chestxsim.core.geometries import Geometry
 import chestxsim.reconstruction.functional as F 
 from typing import Union, Tuple, Optional 
 from chestxsim.utility.filters import *
@@ -57,9 +59,6 @@ class _BaseReconstructionStep:
         init_shape = md.find("ct_dim")
         init_vx = md.find("ct_vx")
         up_mm, down_mm = md.find("extension_mm")
-        print(init_shape)
-        print(init_vx)
-        print(up_mm, down_mm)
 
         reco_dim_mm = [
             round(init_shape[0] * init_vx[0]),
@@ -102,15 +101,9 @@ class _BaseReconstructionStep:
             return result
 
         up_mm, down_mm = md.find("extension_mm")
-        print("mm", up_mm,down_mm)
         # Convert mm -> slices in reconstructed grid
-        n_up = xp.round(up_mm / self.reco_vx[2])
-        n_down = xp.round(down_mm / self.reco_vx[2])
-        print(n_up, n_down)
-
-        Z = result.shape[2]
-        # start = n_up
-        # stop = Z - n_down
+        n_up = math.ceil(up_mm / self.reco_vx[2])
+        n_down = math.ceil(down_mm / self.reco_vx[2])
         return result[:, :, n_up:-n_down]
 
     def _update_metadata(self, md, result):
@@ -154,6 +147,8 @@ class FDK(_BaseReconstructionStep):
     def __call__(self, ct_data: volumeData) -> volumeData:
         volume = ct_data.volume
         md = copy.deepcopy(ct_data.metadata)
+        if volume.ndim == 4 and volume.shape[-1] == 1:
+            volume = xp.squeeze(volume, axis=-1)
         # resolve reconstruction grid dimensions
         reco_dim = self._prepare_reco_grid(md) 
         result = F.fdk(
@@ -197,6 +192,8 @@ class SART(_BaseReconstructionStep):
     def __call__(self, ct_data: volumeData) -> volumeData:
         volume = ct_data.volume
         md = copy.deepcopy(ct_data.metadata)
+        if volume.ndim == 4 and volume.shape[-1] == 1:
+            volume = xp.squeeze(volume, axis=-1)
         # resolve reconstruction grid dimensions
         reco_dim = self._prepare_reco_grid(md)
         result = F.sart(

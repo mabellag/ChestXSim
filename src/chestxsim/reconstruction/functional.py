@@ -1,5 +1,6 @@
 
-from chestxsim.core import xp, Geometry
+from chestxsim.core.device import xp
+from chestxsim.core.geometries import Geometry
 from chestxsim.wrappers.astra import Astra_OP
 from typing import Union, Optional, List, Tuple
 from chestxsim.utility.filters import *
