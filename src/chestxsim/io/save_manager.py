@@ -1,8 +1,6 @@
 from typing import Optional, Dict, Any
 from pathlib import Path
-import os
-import copy, json
-import hashlib
+import hashlib, re
 
 from chestxsim.core.data_containers import MetadataContainer, volumeData
 from chestxsim.core.device import xp
@@ -28,8 +26,12 @@ class SaveManager:
 
     def __init__(self, base_save_dir: Optional[str] = None):
         if base_save_dir is None:
-            base_save_dir = RESULTS_DIR
-        self.base_dir = Path(base_save_dir)
+            base_save_dir = RESULTS_DIR 
+
+        
+        base_path = Path(base_save_dir)
+        base_path.mkdir(parents=True, exist_ok=True)
+        self.base_dir = base_path
 
 
     def resolve_folder_structure(self, step_class: str, metadata: MetadataContainer) -> Dict[str, Path]:
@@ -193,12 +195,20 @@ class SaveManager:
         return hashlib.md5(content.encode("utf-8")).hexdigest()
 
     @staticmethod
+    def _normalize_text(s: str) -> str:
+        # quita espacios después de comas y colapsa espacios múltiples
+        s = s.replace(", ", ",")
+        s = re.sub(r"\s+", " ", s)
+        return s.strip()
+
+    @staticmethod
     def hash_log(metadata: MetadataContainer) -> str:
         content = "*** CHESTXSIM PROCESSING LOG ***\n\n"
         if metadata.init:
             content += f"init: {metadata.init}\n"
         for step_name, details in metadata.step_outputs.items():
             content += f"{step_name}: {details}\n"
+        content = SaveManager._normalize_text(content)
         return hashlib.md5(content.encode("utf-8")).hexdigest()
 
     def save(self, vol_data: volumeData, custom_folder: str = None):
