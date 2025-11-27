@@ -72,7 +72,8 @@ import inspect
 from typing import Union, Optional, List, Callable, Any
 
 from chestxsim.core.device import xp
-from chestxsim.io import SaveManager, RESULTS_DIR
+from chestxsim.io.save_manager import SaveManager
+from chestxsim.io.paths import RESULTS_DIR
 from chestxsim.core.geometries import *
 from chestxsim.core.data_containers import *
 from chestxsim.preprocessing.steps import *
@@ -93,6 +94,7 @@ PROCESSING_STEP_REGISTRY = {
     "Physics_effect": PhysicsEffect,
     "noise_effect": NoiseEffect,
     "FDK": FDK, 
+    "SART": SART,
     "CT_resampled": Interpolator,
     "CT_rotated": VolumeRotate, 
 
@@ -145,7 +147,7 @@ class Pipeline:
             if xp.__name__ == "cupy":
                 xp.get_default_memory_pool().free_all_blocks()
 
-            # print(processed_data.volume.shape)
+            print(processed_data.volume.shape)
             gc.collect()  
         
         self._log("Pipeline execution finished.")
