@@ -16,11 +16,10 @@ from typing import Dict, Union, Optional, Tuple, Any
 from pathlib import Path 
 import scipy.io as sio
 
-from chestxsim.core.device import xp          
+
+from chestxsim.core.device import xp 
+from chestxsim.utility import compute_effective_energy          
 from chestxsim.io.paths import (
-    MATERIALS_DIR,
-    EXECUTABLES_DIR,
-    MODELS_DIR,
     MAC_DIR,
     SPECTRUM_DIR,
 )
@@ -62,37 +61,6 @@ class MetadataContainer:
                 return step_data[field]
         return default
     
-  
-    # def find(self, field: str, multiple: bool = False, default=None):
-    #     """
-    #     Search all recorded steps for a given field name.
-
-    #     Args:
-    #         field: the key to search for in each step's output
-    #         multiple: if True, return a dict {step_name: value} for all matches.
-    #                   if False (default), return the first match value found
-    #                   in reverse step order (most recent first).
-    #         default: value returned if not found.
-
-    #     Examples:
-    #         md.find("units")                -> 'mu'
-    #         md.find("units", multiple=True) -> {'UnitConverter': 'mu'}
-    #     """
-    #     if multiple:
-    #         results = {
-    #             step: data[field]
-    #             for step, data in self.step_outputs.items()
-    #             if isinstance(data, dict) and field in data
-    #         }
-    #         return results if results else default
-
-    #     # Single (latest) match, reverse order = last written
-    #     for step_name in reversed(list(self.step_outputs.keys())):
-    #         data = self.step_outputs[step_name]
-    #         if isinstance(data, dict) and field in data:
-    #             return data[field]
-    #     return default
-
     def find(self, key: str, default: Any=None) -> Any:
         """
         Search order:
@@ -198,11 +166,12 @@ class SourceSpectrum:
         if not self.poly_flag:
             # Monochromatic: use only the effective energy bin
             if self.effective_energy is None:
-                raise ValueError("[SourceSpectrum] effective_energy must be set for mono mode.")
+                print("[SourceSpectrum] No effective_energy provided → computing from tube voltage.")
+                self.effective_energy = compute_effective_energy(self.voltage,  filter="1.5") # assuming 1.5 AL filter 
+                print(f"[SourceSpectrum] Computed effective energy: {self.effective_energy:.2f} keV from {self.voltage} kVp, 1.5 mm Al)")
+            
             e_eff = int(self.effective_energy)
-            val_eff = spectrum[e_eff - 1] if e_eff - 1 < len(spectrum) else spectrum[-1]
             spectrum = xp.zeros_like(spectrum)
-            # spectrum[e_eff - 1] = val_eff
             spectrum[e_eff - 1] = 1
         else:
             # Normalize polychromatic spectrum
