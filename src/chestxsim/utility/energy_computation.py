@@ -1,13 +1,42 @@
+"""
+Utility functions to compute the **effective energy** (in keV) of an X-ray beam
+based on its tube voltage and aluminum filtration.
+
+The method implemented here follows the standard HVL-based approximation:
+
+1. A precomputed **Half-Value Layer (HVL)** lookup table (`HLV_MAP`) provides
+   HVL values in millimeters of aluminum for several filtration levels
+   ("1.5 mm", "2.5 mm", "3.0 mm") and tube voltages between **60–120 kVp**.
+
+2. From the HVL, the script computes the corresponding **linear attenuation
+   coefficient** μ using:
+       μ = ln(2) / HVL
+
+3. Dividing μ by the density of aluminum (2.7 g/cm³) yields an **effective
+   mass attenuation coefficient** (MAC) in cm²/g.
+
+4. The effective MAC is then **inverted** by linear interpolation against
+   reference aluminum mass-attenuation data from NIST (`AL_ENERGY_MEV`,
+   `AL_MAC_VAL`) to estimate the **effective monoenergetic energy** of the beam.
+
+This allows approximating the beam’s spectral hardness using only:
+    - Tube voltage (kVp)
+    - Aluminum filtration category ("1.5", "2.5", "3.0")
+
+**Supported voltages:**  
+    60, 80, 100, 110, 120 kVp  
+(Values outside this range are not available in the HVL table)
+"""
+
+
 import numpy as np
-
-
 # HLV_MAP: Half-value layer (HVL) data from spektr, expressed in millimeters.
 # The keys are filter types as strings and the values are dictionaries mapping
 # voltage (in kV) to the HVL value.
 HLV_MAP = {  
     "1.5": {60: 3.1891, 80: 4.2038, 100: 4.4289, 110: 5.6343, 120: 6.0806},
     "2.5": {60: 3.4637, 80: 4.5624, 100: 5.5923, 110: 6.073, 120: 6.5346},
-    "3.0":   {60: 3.5858, 80: 4.7302, 100: 5.7831, 110: 6.279, 120: 6.7406},
+    "3.0":  {60: 3.5858, 80: 4.7302, 100: 5.7831, 110: 6.279, 120: 6.7406},
 }
 
 # https://physics.nist.gov/PhysRefData/XrayMassCoef/ElemTab/z13.html
@@ -78,3 +107,28 @@ def interpolate_effective_energy(mac: float) -> float:
             e_eff = e1 + (e2 - e1) * (mac - mac1) / (mac2 - mac1)
             return e_eff * 1000 # return kvp
     return None
+
+def compute_effective_energy(voltage: int, filter: str = "1.5") -> int:
+    """
+    Compute the effective energy (in keV) based on the specified voltage and filter.
+
+    This function implements a two-step process:
+    1. It calculates the effective mass attenuation coefficient (MAC) for aluminum using the
+       provided voltage and filter setting by calling `calculate_effective_mac`.
+       - The calculation is based on the half-value layer (HVL) data from spektr, which is stored in HLV_MAP.
+       - The HVL (in mm) is converted to cm, and then the effective MAC is derived using the formula:
+             effective_mu = ln(2) / (HVL in cm)
+       - mac value is compute dividing the effective_mu by  aluminum density (2.7 g/cm³).
+    2. It interpolates the effective energy (in keV) from the computed MAC using the NIST AL data by calling
+       - The NIST data arrays for energies and MAC values (AL_ENERGY_MEV and AL_MAC_VAL) are used to determine
+         the effective energy through linear interpolation.
+
+    Args:
+        voltage (int): The voltage (in kV) for which to compute the effective energy.
+        filter (str): The filter setting as a string. Default is "1.5"
+
+    Returns:
+        int: The computed effective energy in keV.
+    """
+    mac_al_eff = calculate_effective_mac(voltage, filter)
+    return interpolate_effective_energy(mac_al_eff)

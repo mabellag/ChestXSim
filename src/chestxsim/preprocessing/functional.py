@@ -383,31 +383,6 @@ def segment_volume(volume: Any, tissue_masks: Any) -> Any:
     ]
     return xp.stack(tissue_map_list, axis=-1)  # shape: [x, y, z, T]
 
-def compute_effective_energy(voltage: int, filter: str = "1.5") -> int:
-    """
-    Compute the effective energy (in keV) based on the specified voltage and filter.
-
-    This function implements a two-step process:
-    1. It calculates the effective mass attenuation coefficient (MAC) for aluminum using the
-       provided voltage and filter setting by calling `calculate_effective_mac`.
-       - The calculation is based on the half-value layer (HVL) data from spektr, which is stored in HLV_MAP.
-       - The HVL (in mm) is converted to cm, and then the effective MAC is derived using the formula:
-             effective_mu = ln(2) / (HVL in cm)
-       - mac value is compute dividing the effective_mu by  aluminum density (2.7 g/cm³).
-    2. It interpolates the effective energy (in keV) from the computed MAC using the NIST AL data by calling
-       - The NIST data arrays for energies and MAC values (AL_ENERGY_MEV and AL_MAC_VAL) are used to determine
-         the effective energy through linear interpolation.
-
-    Args:
-        voltage (int): The voltage (in kV) for which to compute the effective energy.
-        filter (str): The filter setting as a string. Default is "1.5"
-
-    Returns:
-        int: The computed effective energy in keV.
-    """
-    mac_al_eff = calculate_effective_mac(voltage, filter)
-    return interpolate_effective_energy(mac_al_eff)
-
 def convert_HU_to_mu(volume: Any, mu_water: float)-> Any:
     """
     Convert a CT volume in HU units to a volume of linear attenuation coefficients (mu).
