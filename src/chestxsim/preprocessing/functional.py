@@ -5,9 +5,10 @@ import os
 import cupy as cp
 import torch.nn.functional 
 from torchvision import transforms
-from chestxsim.core import xp, ndi, Geometry
+from chestxsim.core.device import xp, ndi
+from chestxsim.core.geometries import Geometry
 from chestxsim.utility.ops_utils  import apply_channelwise
-from chestxsim.utility.energy_computation import calculate_effective_mac, interpolate_effective_energy
+from chestxsim.utility.energy import calculate_effective_mac, interpolate_effective_energy
 from skimage.morphology import ball
 
 
