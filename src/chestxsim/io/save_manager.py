@@ -119,6 +119,7 @@ class SaveManager:
         folder_paths = self.resolve_folder_structure(step_name, step_outcome.metadata)
         volume = step_outcome.volume
         metadata = step_outcome.metadata
+        metadata.dtype = "float32" # used by defaukf in save_volume function 
         sim_id = metadata.id or "unnamed"
 
         if volume.ndim == 4 and volume.shape[-1] > 1:
@@ -196,7 +197,6 @@ class SaveManager:
 
     @staticmethod
     def _normalize_text(s: str) -> str:
-        # quita espacios después de comas y colapsa espacios múltiples
         s = s.replace(", ", ",")
         s = re.sub(r"\s+", " ", s)
         return s.strip()
