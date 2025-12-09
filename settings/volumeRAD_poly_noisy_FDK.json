@@ -1,0 +1,51 @@
+{
+    "modality": "DCT",
+    "geometry": {
+        "detector_size": [4288, 4288],
+        "pixel_size": [0.1, 0.1],
+        "binning_proj": 4,
+        "SDD": 1800.0,
+        "bucky": 14.47,
+        "step_mm": 16.077,
+        "nprojs": 61
+    },
+    "preprocessing": {
+        "bed_removal": {"threshold": -900, "save_mask": true, "save": false},
+        "air_cropping": {"axis": 1, "tol": 5, "delta": 3, "channel": 0, "save": false},
+        "volume_extension": {"target_height": 600.0, "chest_center": 150, "save": false},
+        "tissue_segmentation": {"threshold": 132, "tissue_types": ["bone", "soft"], "save_mask": false, "save": false},
+        "unit_conversion": {"units": "mu", "tissue_types": ["bone", "soft"], "save": true}
+    },
+    "projection": {
+        "projection": {"opt": "astra", "channel_wise": true, "save": true},
+        "Physics_effect": {
+            "I0": 1e5,
+            "voltage": 60,
+            "poly_flag": true,
+            "ISL": false,
+            "apply_flood_correction": false,
+            "log": false,
+            "save": false
+        },
+        "noise_effect": {
+            "mu_dark": 2.0,
+            "sigma_dark": 6.0,
+            "apply_flood_correction": true,
+            "log": true,
+            "save": true
+        }
+    },
+    "reconstruction": {
+        "FDK": {
+            "opt": "astra",
+            "match_input": true,
+            "reco_vx": [1.25, 5.00, 1.25],
+            "filter_type": "ramp",
+            "offset_filter": 0.005,
+            "max_freq": 0.5,
+            "axis": 1,
+            "padding": true,
+            "save": true
+        }
+    }
+}

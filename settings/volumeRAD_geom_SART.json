@@ -1,0 +1,29 @@
+{
+    "modality": "DCT",
+    "geometry": {
+        "detector_size": [4288, 4288],
+        "pixel_size": [0.1, 0.1],
+        "binning_proj": 4,
+        "SDD": 1800.0,
+        "bucky": 14.47,
+        "step_mm": 16.077,
+        "nprojs": 61
+    },
+    "preprocessing": {
+        "bed_removal": {"threshold": null , "save_mask": true, "save": false},
+        "air_cropping": {"axis": 1, "save": false},
+        "volume_extension": {"target_height": 575, "chest_center": 150, "save": false},
+        "unit_conversion": {"units": "mu", "mu_factor": [2.00, 1.00], "save": true}
+    },
+    "projection": {
+        "projection": {"opt": "astra", "channel_wise": false, "save": true}
+    },
+    "reconstruction": {
+        "SART": {
+            "opt": "astra",
+            "match_input": true,
+            "reco_vx": [1.25, 5.00, 1.25],
+            "save": true
+        }
+    }
+}
