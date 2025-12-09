@@ -1,4 +1,4 @@
-from chestxsim.core import xp
+from chestxsim.core.device import xp
 from typing import Any
 # import numpy.fft as fft
 

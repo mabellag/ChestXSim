@@ -1,5 +1,6 @@
 from typing import Tuple
-from chestxsim.core import xp, volumeData 
+from chestxsim.core.device import xp
+from chestxsim.core.data_containers import volumeData 
 from scipy import interpolate  # this works on cpu 
 import copy
 import numpy as np
