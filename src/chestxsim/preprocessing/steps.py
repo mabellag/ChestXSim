@@ -6,8 +6,9 @@ from chestxsim.core.geometries import Geometry
 from chestxsim.core.device import xp
 from chestxsim.io.paths import MAC_DIR, MODELS_DIR, RESULTS_DIR
 from chestxsim.io.save_manager import SaveManager
-from . import functional  as F
 from  chestxsim.utility.ops_utils import ensure_4d
+from chestxsim.utility.energy import compute_effective_energy
+from . import functional  as F
 
 __all__ = [
     "BedRemover",
@@ -48,11 +49,6 @@ class BedRemover:
             saver.save_volume(mask, save_dir, filename)
 
         processed_volume = ensure_4d(F.remove_bed(volume[..., 0], mask))
-
-        # metadata.Preprocessing.update({
-        #     "bed removed": ["True", "0" if self.threshold is not None else "1"],
-        #     "dim": processed_volume.shape
-        # })
         metadata.step_outputs[self.__class__.__name__] = {
             "bed_removed": True,
             "method": "analytical" if self.threshold is not None else "dl"
@@ -141,18 +137,7 @@ class VolumeFlipper:
     def __call__(self, ct_data: volumeData) -> volumeData:
         volume = ensure_4d(ct_data.volume)
         metadata = copy.deepcopy(ct_data.metadata)
-
-        # processed_volume = xp.stack([
-        #     F.flip(volume[..., i], self.axis) for i in range(volume.shape[-1])
-        # ], axis=-1)
-
         processed_volume = F.flip(volume, self.axis)
-
-
-        # metadata.Preprocessing.update({
-        #     "chest_to_detector": True,
-        # })
-
         metadata.step_outputs[self.__class__.__name__] = {
             "chest_to_detector": True,
             "flip_axis": self.axis
@@ -186,7 +171,7 @@ class VolumeRotate:
         if self.angle is not None:
             angle = self.angle
         elif self.angle_from_range is not None:
-            angle = np.round(np.random.uniform(*self.angle_from_range), 2)
+            angle = xp.round(xp.random.uniform(*self.angle_from_range), 2)
         else:
             raise ValueError("Either `angle` or `angle_from_range` must be provided.")
 
@@ -218,12 +203,12 @@ class TissueSegmenter:
                  model_path: Optional[str] = None,
                  tissue_types: List[str] = ["bone", "soft"],
                  tissue_masks: Optional[Any] = None,
-                 save_masks: Optional[bool] = False):
+                 save_mask: Optional[bool] = True):
         
         self.bone_threshold = threshold
         self.model_path = model_path or MODELS_DIR/ "model_fine_tune_vf_2.pt"
         self.tissue_types = tissue_types
-        self.save_masks = save_masks
+        self.save_masks = save_mask
         self.tissue_masks = tissue_masks
 
     def __call__(self, ct_data: volumeData) -> volumeData:
@@ -244,8 +229,8 @@ class TissueSegmenter:
             tissue_masks = xp.stack([binary_mask_bone, binary_soft_mask], axis=-1) # => (H, W, D, T)
 
         if self.save_masks:
+            print("save mask tissue")
             saver = SaveManager()
-            
             for i, tissue_type in enumerate(self.tissue_types):
                 mask = tissue_masks[..., i]
 
@@ -259,7 +244,6 @@ class TissueSegmenter:
                 save_dir.mkdir(parents=True, exist_ok=True)
                 full_path = save_dir / filename
                 print(f"[TissueSegmenter] Saving {tissue_type} mask ({method}) to: {full_path}")
-                
                 saver.save_volume(mask, save_dir, filename)
 
 
@@ -302,9 +286,9 @@ class UnitConverter:
         if self.e_eff is not None:
             e_eff = self.e_eff
         elif self.voltage is not None:
-            e_eff = xp.round(F.compute_effective_energy(self.voltage), 2)
+            e_eff = xp.round(compute_effective_energy(self.voltage), 2)
         else:
-            e_eff = xp.round(F.compute_effective_energy(metadata.init["voltage"]), 2)  
+            e_eff = xp.round(compute_effective_energy(metadata.init["voltage"]), 2)  
 
         mac_water = xp.loadtxt(self._mac_path / 'mac_water.txt')
         mac_eff_water = mac_water[int(e_eff - 1)]

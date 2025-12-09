@@ -156,13 +156,11 @@ class DicomReader(CTReader):
 
        
         metadata.voxel_size = tuple(round(x, 3) for x in (pixspa[0], pixspa[1], slice_spacing))
-        # metadata.init["dim"] = metadata.dim
-        # metadata.init["voxe_size"] = metadata.voxel_size
         metadata.init["voltage"] = float(first_dicom.KVP)
         metadata.init["slope"] = float(first_dicom.RescaleSlope)
         metadata.init["intercept"] = float(first_dicom.RescaleIntercept)
         metadata.dtype = str(first_dicom.pixel_array.dtype)
-       
+        
         # store id 
         p = Path(dicomFolder)
         # print(p)

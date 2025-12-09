@@ -10,9 +10,12 @@ The input should be:
 import os
 import argparse
 from typing import Tuple
+from pathlib import Path 
 
-from chestxsim.io import RawReader, SaveManager, STEP_TO_FOLDER, RESULTS_DIR
-from chestxsim.utility import Interpolator
+from chestxsim.io.readers import RawReader
+from chestxsim.io.save_manager import SaveManager
+from chestxsim.io.paths import  STEP_TO_FOLDER, RESULTS_DIR
+from chestxsim.utility.interpolation import Interpolator
 
 
 def parse_args():
@@ -30,13 +33,24 @@ def parse_args():
         default="1.25,5.0,1.25",
         help="Target voxel size for DCT reconstruction, e.g. '1.25,5.0,1.25'"
     )
+    parser.add_argument(
+        "--output", "-o",
+        default=str(RESULTS_DIR / STEP_TO_FOLDER["Interpolator"]),
+        help=f"Folder with CT without bed "
+             f"(default: results/{STEP_TO_FOLDER['Interpolator']})"
+    )
 
     return parser.parse_args()
 
 
 
 def run(input_folder: str,
-        target_vx_size: Tuple[float, float, float] = (1.25, 5.0, 1.25)):
+        target_vx_size: Tuple[float, float, float],
+        output_folder: str):
+    
+    output_folder = Path(output_folder)
+    output_folder.mkdir(parents=True, exist_ok=True)
+    save_manager = SaveManager(base_save_dir=output_folder)
 
     for root, _, files in os.walk(input_folder):
 
@@ -66,14 +80,13 @@ def run(input_folder: str,
             interpolator = Interpolator(target_vx_size, tuple(target_size))
             resampled_ct = interpolator(input_ct)
 
-            SaveManager().save_step("Interpolator", resampled_ct)
+            save_manager.save_step("Interpolator", resampled_ct)
 
 
 def main():
     args = parse_args()
     target_vx = tuple(float(v.strip()) for v in args.vx_xyz.split(","))
-    run(input_folder=args.input, target_vx_size=target_vx)
-
+    run(input_folder=args.input, target_vx_size=target_vx, output_folder=args.output)
 
 if __name__ == "__main__":
     main()

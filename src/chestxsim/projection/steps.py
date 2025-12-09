@@ -1,8 +1,7 @@
 import copy 
-from chestxsim.core import (
-    volumeData, SourceSpectrum, MACRepo, create_geometry_from_id,GEOMETRY_ID )
+from chestxsim.core.data_containers import volumeData, SourceSpectrum, MACRepo
+from chestxsim.core.geometries import create_geometry_from_id, GEOMETRY_ID 
 from chestxsim.wrappers.astra import *
-from chestxsim.utility.ops_utils import apply_channelwise
 from . import functional as F
 from typing import Any 
 
@@ -72,9 +71,6 @@ class PhysicsEffect:
         log (bool, optional): 
             Default is True. If True, applies logarithmic transformation to the projection.
     """
-    
-  
-
     def __init__(self, 
                  source: SourceSpectrum, 
                  ISL: bool = False,

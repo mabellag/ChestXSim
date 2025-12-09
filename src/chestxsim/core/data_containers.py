@@ -18,7 +18,7 @@ import scipy.io as sio
 
 
 from chestxsim.core.device import xp 
-from chestxsim.utility import compute_effective_energy          
+from chestxsim.utility.energy import compute_effective_energy          
 from chestxsim.io.paths import (
     MAC_DIR,
     SPECTRUM_DIR,

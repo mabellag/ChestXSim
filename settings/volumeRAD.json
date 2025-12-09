@@ -10,11 +10,11 @@
         "nprojs": 61
     },
     "preprocessing": {
-        "bed_removal": {"threshold": -900, "save_mask": true, "save": true},
-        "air_cropping": {"axis": 1, "tol": 5, "delta": 3, "channel": 0, "save": true},
-        "volume_extension": {"target_height": 600.0, "chest_center": 150, "save": true},
-        "tissue_segmentation": {"threshold": 132, "tissue_types": ["bone", "soft"], "save_mask": true, "save": true},
-        "unit_conversion": {"units": "density", "tissue_types": ["bone", "soft"], "save": true}
+        "bed_removal": {"threshold": -900, "save_mask": true, "save": false},
+        "air_cropping": {"axis": 1, "tol": 5, "delta": 3, "channel": 0, "save": false},
+        "volume_extension": {"target_height": 600.0, "chest_center": 150, "save": false},
+        "tissue_segmentation": {"threshold": 132, "tissue_types": ["bone", "soft"], "save_mask": false, "save": false},
+        "unit_conversion": {"units": "mu", "tissue_types": ["bone", "soft"], "save": true}
     },
     "projection": {
         "projection": {"opt": "astra", "channel_wise": true, "save": true},

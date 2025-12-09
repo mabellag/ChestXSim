@@ -147,7 +147,7 @@ class Pipeline:
             if xp.__name__ == "cupy":
                 xp.get_default_memory_pool().free_all_blocks()
 
-            print(processed_data.volume.shape)
+            # print(processed_data.volume.shape)
             gc.collect()  
         
         self._log("Pipeline execution finished.")

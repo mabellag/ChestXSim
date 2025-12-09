@@ -55,6 +55,7 @@ STEP_TO_FOLDER = {
     "RaptorFDK": "RaptorFDK",
     "FuximFDK": "FuximFDK",
     "FDK": "FDK",
+    "SART": "SART",
     "Interpolator": "CT_interpolated",
     "VolumeRotate":"CT_rotated"
 }

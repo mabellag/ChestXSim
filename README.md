@@ -85,7 +85,7 @@ cd ChestXsim-Project
 
 ```bash
 # Create environment
-conda create -n chestxsim python=3.10 -y
+conda create -n chestxsim python=3.10
 conda activate chestxsim
 
 # Install CUDA-enabled PyTorch (CUDA 12.1)
@@ -104,11 +104,11 @@ python -c "import torch; print('PyTorch CUDA:', torch.cuda.is_available())"
 ```
 
 ### 2. Build the Docker image
-The simplest way to use ChestXsim via Docker is to install Docker Desktop. D
+The simplest way to use ChestXsim via Docker is to install Docker Desktop. 
 - Download and install from https://docs.docker.com/desktop/
 - On Windows, ensure that WSL2 is installed or enabled during setup
 
-> Note: To be able to GPU accelarion inside Docker the host system must have the NVIDIA Container Toolkit. Windows users do not this to install this manually - Docker Desktop + WSL2 provide GPU passthrough automatically. Linux users must install this manually: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+> Note: To be able to GPU accelarion inside Docker the host system must have the NVIDIA Container Toolkit. Windows users do not need to install this manually - Docker Desktop + WSL2 provide GPU passthrough automatically. Linux users must install this manually: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
 
 **Verify GPU availability:**
 ```bash
@@ -122,14 +122,12 @@ docker build -t chestxsim .
 
 ## 🩺 MIDRC Data Download
 
-ChestXsim includes a curated **MIDRC manifest** and a small Windows **downloader tool** to simplify fetching chest CT cases from the [MIDRC portal](https://data.midrc.org/) that are suitable for DCT simulation.
-
-The [midrc/](./midrc/) folder contains:
-- a manifest file (`MIDRC_manifest.json`) listing the collection of chest CT studies,
+Go to [midrc/](./midrc/) folder. This contains:
+- a manifest file (`MIDRC_manifest.json`) listing the collection of chest CT studies suitable for DCT simulation.
 - a lightweight graphical downloader that wraps the official **Gen3** client (`gen3-client.exe`),
 - documentation and helper files.
 
-To download the data, you will need a valid **MIDRC API Key** (`credentials.json`), which can be generated from your **MIDRC user profile**.
+To download the data, you will need a valid **MIDRC API Key** (`credentials.json`), which can be generated from your **MIDRC user profile** at the [MIDRC portal](https://data.midrc.org/).
 
 
 ## 🚀 Usage
@@ -328,7 +326,7 @@ Internally, ASTRA_Tomo configures ASTRA’s 3D cone-beam geometry and dispatches
 - **Forward projection** → **'FP3D_CUDA'**
 - **Backprojection → 'BP3D_CUDA**'
 
-In constrast, when used inside ChestXsim pipeline, the same operator is automatically provided to steps sucha as `projection()`, `FDK()`, and `SART()`. ChestXsim automatically:
+In constrast, when used inside ChestXsim pipeline, the same operator is automatically provided to steps such as `projection()`, `FDK()`, and `SART()`. ChestXsim automatically:
 - pases voxel size, detector geometry, and physical spacing 
 - manages volume sahpe and coordinate conventions
 based on information stored in each ```VolumeData.metadata``` object. 

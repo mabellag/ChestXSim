@@ -38,8 +38,9 @@ import os
 import argparse
 from typing import Optional
 import json
-from chestxsim.core import volumeData, build_pipeline
-from chestxsim.io import RawReader, DicomReader
+from chestxsim.core.data_containers import volumeData
+from chestxsim.core.pipeline import build_pipeline
+from chestxsim.io.readers import RawReader, DicomReader
 from pathlib import Path
 
 
@@ -84,6 +85,7 @@ def run(input_folder: str, config: str, mode: Optional[int] = None, output_folde
         print(f"\nDetected multi-tissue input structure under: {input_path}")
         reader = RawReader()
         case_ids = find_case_ids_across_tissues(input_path)
+        processed_multitissue_ids = set(case_ids)
 
         for case_id in sorted(case_ids):
             print(f"\nProcessing multi-tissue case: {case_id}")
@@ -95,13 +97,21 @@ def run(input_folder: str, config: str, mode: Optional[int] = None, output_folde
                 print(f"{case_id} completed in {elapsed:.2f} seconds")
             except Exception as e:
                 print(f"Skipping {case_id} due to error: {e}")
+    
+    # SINGLE VOLUME INPUT CASE:
     else:
-        # SINGLE VOLUME INPUT CASE:
         for root, _, files in os.walk(input_folder):
-            # print to total of case id found here 
-            if not files:
-                continue
+            # # SKIP IF ALREADY PROCESSED AS MULTI-TISSUE
+            # root_path = Path(root)
+            # rel = root_path.relative_to(input_path)
+            # parts = rel.parts
+            # if len(parts) >= 2 and parts[0] in {"bone", "soft"} and parts[1] in processed_multitissue_ids:
+            #     continue
 
+            # filter irrelevant files  
+            valid_files = [f for f in files if not f.startswith('.') and not f.lower().endswith(('.gitkeep', '.txt', '.json'))]
+            if not valid_files:
+                continue
             is_raw = any(f.lower().endswith((".img", ".npy")) for f in files)
 
             if is_raw:
@@ -111,15 +121,13 @@ def run(input_folder: str, config: str, mode: Optional[int] = None, output_folde
 
             print(f"\nProcessing: {root}")
             ct_data = reader.read(root)
-            print(ct_data.metadata)
-
             start_time = time.time()
             result = pipeline.execute(ct_data)
             elapsed = time.time() - start_time
 
             case_id = result.metadata.id or os.path.basename(root)
             print(f"\n{case_id} completed in {elapsed:.2f} seconds")
-        
+    
 
 
 def main(): 
