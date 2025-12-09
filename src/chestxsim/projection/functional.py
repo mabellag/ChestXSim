@@ -37,21 +37,22 @@ def apply_channelwise(fn):
     return channelwise_wrapper
 
 
-def clean_gpu(fn):
-    def gpu_wrapper(*args, **kwargs):
-        xp._default_memory_pool.free_all_blocks()
-        xp.get_default_pinned_memory_pool().free_all_blocks()
+# def clean_gpu(fn):
+#     def gpu_wrapper(*args, **kwargs):
+#         xp._default_memory_pool.free_all_blocks()
+#         xp.get_default_pinned_memory_pool().free_all_blocks()
 
-        result = fn(*args, **kwargs)
+#         result = fn(*args, **kwargs)
 
-        xp._default_memory_pool.free_all_blocks()
-        xp.get_default_pinned_memory_pool().free_all_blocks()
+#         xp._default_memory_pool.free_all_blocks()
+#         xp.get_default_pinned_memory_pool().free_all_blocks()
 
-        return result
-    return gpu_wrapper
+#         return result
+#     return gpu_wrapper
 
 
-@apply_channelwise
+# @clean_gpu
+# @apply_channelwise
 def project(volume, opt, vol_vx):
     return opt.project(volume, vol_vx)
 
@@ -78,7 +79,7 @@ def build_mac_matrix(E_ENERGY: int, tissue_types: list[str], macs: MACRepo) -> A
 
     return MAC
 
-@clean_gpu
+# @clean_gpu
 def energyProjection(projections: Any,  # (W, H, ANGLES, T) #
                      voxel_size: tuple[float, float, float],
                      I0: Union[float, int],
