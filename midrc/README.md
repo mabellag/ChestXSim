@@ -26,16 +26,17 @@ Make sure you have **all these files in the same folder**:
 3. When prompted:
    - Select your `credentials.json` file.
    - If a `MIDRC_manifest.json` is present in the same folder, you can use it or choose a different manifest.
-   - Choose the destination folder where the MIDRC files will be saved.
+   - Choose as destination folder to save MIDRC the `inputs`.
 4. The program will:
    - Configure the `midrc` profile in Gen3.
    - **Display a message when the download starts** and **another when it finishes**.
    - Open a new console window to run the download and show the progress of each file.  
      *(Depending on the manifest size, this may take minutes or hours.)*
-5. When finished, the downloaded files will be located in the chosen destination folder.
-6. Unzip downloaded files. Some MIDRC files come compressed as `.zip`. You can extract all of them recursively with:
+5. When finished, the downloaded files will be located in the  destination folder.
+6. Unzip downloaded files. From porject root:
    ```bash
-   python unzip.py <download_folder> <output_folder> 
+   cd midrc
+   python unzip.py ..\inputs  
    ```
 
 ## Notes
