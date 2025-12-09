@@ -69,3 +69,6 @@ dist/
 .vscode/
 borrar/
 midrc/test.ipynb
+src\chestxsim\wrappers\fuxsim.py
+src\chestxsim\wrappers\raptor.py
+src\chestxsim\wrappers\fuxsim_new.py
