@@ -280,9 +280,11 @@ class Astra_OP(GeometricOp, ABC):
             cfg['ProjectionDataId']     = in_id
             cfg['ReconstructionDataId'] = out_id
 
+        proj_id = None
         if proj_name is not None:
-            cfg['ProjectorId'] = astra.create_projector(proj_name, proj_geom, vol_geom)
-        
+            proj_id = astra.create_projector(proj_name, proj_geom, vol_geom)
+            cfg['ProjectorId'] = proj_id
+                
         if extra_cfg:
             cfg.update(extra_cfg)
 
@@ -292,9 +294,13 @@ class Astra_OP(GeometricOp, ABC):
                 astra.algorithm.run(alg_id, **run_kwargs)  # e.g. iterations=100
             else:
                 astra.algorithm.run(alg_id)
+        # cleanup 
         finally:
             astra.algorithm.delete(alg_id)
-            link.delete(in_id); link.delete(out_id)
+            link.delete(in_id)
+            link.delete(out_id)
+            if proj_id is not None:
+                astra.projector.delete(proj_id)
 
         return xp.asarray(out_np)
     
