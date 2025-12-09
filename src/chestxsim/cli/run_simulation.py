@@ -32,7 +32,7 @@ Dependencies:
 
 """
 
-import sys, os
+import sys, os, gc
 import time 
 import os   
 import argparse
@@ -42,7 +42,6 @@ from chestxsim.core.data_containers import volumeData
 from chestxsim.core.pipeline import build_pipeline
 from chestxsim.io.readers import RawReader, DicomReader
 from pathlib import Path
-
 
 def load_config(json_path: str) -> dict:
     with open(json_path, 'r') as f:
@@ -93,6 +92,9 @@ def run(input_folder: str, config: str, mode: Optional[int] = None, output_folde
                 ct_data= reader.load_multi_tissue(input_path, case_id, combine_method="stack")
                 start_time = time.time()
                 result = pipeline.execute(ct_data)
+                del ct_data
+                del result
+                gc.collect()
                 elapsed = time.time() - start_time
                 print(f"{case_id} completed in {elapsed:.2f} seconds")
             except Exception as e:
@@ -124,9 +126,12 @@ def run(input_folder: str, config: str, mode: Optional[int] = None, output_folde
             start_time = time.time()
             result = pipeline.execute(ct_data)
             elapsed = time.time() - start_time
-
             case_id = result.metadata.id or os.path.basename(root)
             print(f"\n{case_id} completed in {elapsed:.2f} seconds")
+
+            del ct_data
+            del result
+            gc.collect()
     
 
 

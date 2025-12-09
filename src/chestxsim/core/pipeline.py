@@ -69,6 +69,7 @@ Structure
 
 import gc
 import inspect
+import torch
 from typing import Union, Optional, List, Callable, Any
 
 from chestxsim.core.device import xp
@@ -146,6 +147,9 @@ class Pipeline:
             # Force free GPU memory (if using CuPy)
             if xp.__name__ == "cupy":
                 xp.get_default_memory_pool().free_all_blocks()
+                xp.get_default_pinned_memory_pool().free_all_blocks()
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
 
             # print(processed_data.volume.shape)
             gc.collect()  
