@@ -1,7 +1,5 @@
 # ChestXsim - An open-source framework for realistic chest X-ray tomosynthesis simulations
 
-<img src="https://www.itnonline.com/sites/default/files/Screen%20Shot%202013-12-16%20at%209.40.03%20AM.png" width="300" />
-
 ## 🩻 Overview 
 **ChestXsim** is a research-oriented toolkit for simulating **Digital Chest Tomosynthesis (DCT)** from **chest CT** volumes. It provides the full workflow required for DCT simulation. It supports **geometry-aware acquisition**, **physics-based projection models**, and **reconstruction utilities** to obtain paired CT–DCT datasets — ideal for deep learning applications. 
 
@@ -67,24 +65,25 @@ ChestXsim/
 ```
 
 ## 📦 Installation 
-**ChestXsim** can be installed natively on Windows or run on any platform via Docker
+**ChestXsim** can be installed natively on Windows or run on any platform via Docker.
 
 The framework requires:
 
 - Windows 10/11
 - An NVIDIA GPU  
 - NVIDIA drivers compatible with **CUDA 12.x**  
-- A CUDA-enabled PyTorch build  
-- CuPy compiled for CUDA 12.x (`cupy-cuda12x`)
+
+Regardless of whether you use local or Docker execution, you must first clone the repository and work from the project root:
+```bash
+# Clone the repository
+git clone https://github.com/ChestXsim-Project.git
+cd ChestXsim-Project
+``` 
 
 ### 1. Install from source (Windows)
 > **Note**: ASTRA Toolbox requires compiled binaries that are not available via PyPI.
 
 ```bash
-# Clone the repository
-git clone https://github.com/ChestXsim-Project.git
-cd ChestXsim-Project
-
 # Create environment
 conda create -n chestxsim python=3.10 -y
 conda activate chestxsim
@@ -104,8 +103,22 @@ python -c "import chestxsim; print('ChestXsim successfully installed')"
 python -c "import torch; print('PyTorch CUDA:', torch.cuda.is_available())"
 ```
 
-### 2. Docker (planned)
-A Docker image will be provided as an alternative installation method requiring no environment setup.
+### 2. Build the Docker image
+The simplest way to use ChestXsim via Docker is to install Docker Desktop. D
+- Download and install from https://docs.docker.com/desktop/
+- On Windows, ensure that WSL2 is installed or enabled during setup
+
+> Note: To be able to GPU accelarion inside Docker the host system must have the NVIDIA Container Toolkit. Windows users do not this to install this manually - Docker Desktop + WSL2 provide GPU passthrough automatically. Linux users must install this manually: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
+**Verify GPU availability:**
+```bash
+docker run --rm --gpus all nvidia/cuda:12.2.2-runtime-ubuntu22.04 nvidia-smi
+```
+
+**Build the ChestXsim image from the project root:**
+```bash
+docker build -t chestxsim .
+```
 
 ## 🩺 MIDRC Data Download
 
@@ -120,7 +133,8 @@ To download the data, you will need a valid **MIDRC API Key** (`credentials.json
 
 
 ## 🚀 Usage
-ChestXsim simulation pipelines can be defined through a **configuration file**, which specifies the acquisition geometry, preprocessing steps, projection settings, and reconstruction parameters. Alternatively, you can assemble pipelines manually for full experimental control.
+ChestXsim simulations can be run via **CLI tools** using a JSON configuration file (locally or through Docker).
+Users may also import ChestXsim as a Python package and manually construct pipelines for full control over each processing stage.
 
 ### 🔧 Before You Start: Core Concepts
 
@@ -139,7 +153,7 @@ Before showing how to run a simulation, here are the core building blocks that C
     __call__(self, data: VolumeData) -> VolumeData
     ```
     and automatically updated `data.metadata` to mantain a full log of the simulation. 
-- ** Geometric Operator (Wrapper Interface)** — to execute projection/backprojection operations. 
+- **Geometric Operator (Wrapper Interface)** — to execute projection/backprojection operations. 
 
 ### 📌 Ways to Use ChestXsim
 You can use the toolkit in three ways:  
@@ -217,14 +231,14 @@ This lets you reuse previous results:
 > - `mode=1` → projection only  
 > - `mode=2` → reconstruction only  
 
-**Run via CLI**
+**Run via CLI (local installation)**  
 General syntax:
 ```bash 
 run_simulation --input PATH_TO_CT_STUDIES --config settings/CONFIG.json [--mode 0|1|2] [--output OUTPUT_DIR]
 ```
 To run the full simulation:  
 ```bash
-run_simulation -i .\inputs -c .\settings\volumeRAD_poly_FDK.json
+run_simulation -i .\inputs -c .\settings\volumeRAD_poly_FDK.json -o .\results\volumeRAD_poly_FDK
 ```
 Run a single module by setting the ``--mode`` flag.
 For example, generate projections from previously computed density volumes:
@@ -232,9 +246,34 @@ For example, generate projections from previously computed density volumes:
 run_simulation -i .\results\volumeRAD_poly_FDK\CT_converted\density -c .\settings\volumeRAD_poly_FDK.json -o .\results\volumeRAD_poly_FDK -m 1
 ```
 
-**Run via Docker**
+**Run via CLI inside Docker**
+General syntax:
 ```bash 
+docker run --rm --gpus all -v <PROJECT_ROOT>:/app -e CHESTXSIM_ROOT=/app chestxsim run_simulation [arguments]
 ```
+
+Run full simulation (Equivalent to the local example above)
+```bash 
+docker run --rm --gpus all \
+  -v $(pwd):/app \
+  -e CHESTXSIM_ROOT=/app \
+  chestxsim \
+  run_simulation \
+  -i /app/inputs \
+  -c /app/settings/volumeRAD_poly_FDK.json \
+  -o ./results/volumeRAD_poly_FDK
+
+```
+Run a single module, (Equivalent to the local example above)
+docker run --rm --gpus all \
+  -v $(pwd):/app \
+  -e CHESTXSIM_ROOT=/app \
+  chestxsim \
+  run_simulation \
+  -i /app/results/volumeRAD_poly_FDK/CT_converted/density \
+  -c /app/settings/volumeRAD_poly_FDK.json \
+  -o /app/results/volumeRAD_poly_FDK \
+  -m 1
 
 #### 2. Manual pipeline construction
 You can manually compose a pipeline using `.add(step, save=...)`. For example, to create a preprocessing pipeline:
@@ -297,6 +336,7 @@ When reconstruction is run with  `match_input=True`, the resulting tomosynthesis
 
 ### 4. Guides and Notebooks 
 See the full tutorials:
+- [CLI Cheatsheet]
 - [Core Structures](./examples/0.%20Data_containers.ipynb)  
 - [I/O Management](./examples/1.%20CT%20Readers.ipynb)
 - [Pipeline](./examples/5.%20Pipeline.ipynb)
@@ -318,6 +358,7 @@ See the full tutorials:
 - Both models use a U-Net architecture with a ResNet encoder (PyTorch).
 - Inference is performed slice-wise with batched execution.
 - DLPack enables efficient CuPy ↔ PyTorch data transfer for GPU inference.
+
 ## 🔧 Extensibility
 ChestXsim was designed for **flexible and extensible** use. 
 - Add new processing steps and register them to the pipeline. 
