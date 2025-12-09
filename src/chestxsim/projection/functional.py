@@ -52,7 +52,7 @@ def apply_channelwise(fn):
 
 
 # @clean_gpu
-# @apply_channelwise
+@apply_channelwise
 def project(volume, opt, vol_vx):
     return opt.project(volume, vol_vx)
 
