@@ -52,7 +52,7 @@ borrar/
 *.bmp
 *.tiff
 *.gif
-*.pt
+#*.pt
 
 # =============================
 # Python & Jupyter caches
