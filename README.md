@@ -70,16 +70,15 @@ ChestXsim/
 The framework requires:
 
 - Windows 10/11
-- An NVIDIA GPU  
+- An NVIDIA GPU with **NVIDIA CUDA Toolkit 12.x** installed https://developer.nvidia.com/cuda/toolkit
 - NVIDIA drivers compatible with **CUDA 12.x**  
 
-Regardless of whether you use local or Docker execution, you must first clone the repository and work from the project root:
+Regardless of whether you use local or Docker execution, you must first clone the repository and work from the **project root**.**
+
 ```bash
 # Clone the repository
-git clone https://github.com/ChestXsim-Project.git
-cd ChestXsim-Project
+git clone https://github.com/mabellag/ChestXSim.git
 ``` 
-
 ### 1. Install from source (Windows)
 > **Note**: ASTRA Toolbox requires compiled binaries that are not available via PyPI.
 
@@ -110,10 +109,6 @@ The simplest way to use ChestXsim via Docker is to install Docker Desktop.
 
 > Note: To be able to GPU accelarion inside Docker the host system must have the NVIDIA Container Toolkit. Windows users do not need to install this manually - Docker Desktop + WSL2 provide GPU passthrough automatically. Linux users must install this manually: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
 
-**Verify GPU availability:**
-```bash
-docker run --rm --gpus all nvidia/cuda:12.2.2-runtime-ubuntu22.04 nvidia-smi
-```
 
 **Build the ChestXsim image from the project root:**
 ```bash
@@ -132,7 +127,7 @@ To download the data, you will need a valid **MIDRC API Key** (`credentials.json
 
 ## 🚀 Usage
 ChestXsim simulations can be run via **CLI tools** using a JSON configuration file (locally or through Docker).
-Users may also import ChestXsim as a Python package and manually construct pipelines for full control over each processing stage.
+Users may also import ChestXsim as a Python package and manually construct pipelines for full control over each processing stage.s
 
 ### 🔧 Before You Start: Core Concepts
 
@@ -234,7 +229,7 @@ General syntax:
 ```bash 
 run_simulation --input PATH_TO_CT_STUDIES --config settings/CONFIG.json [--mode 0|1|2] [--output OUTPUT_DIR]
 ```
-To run the full simulation:  
+To run the full simulation from project root:  
 ```bash
 run_simulation -i .\inputs -c .\settings\volumeRAD_poly_FDK.json -o .\results\volumeRAD_poly_FDK
 ```
@@ -250,28 +245,15 @@ General syntax:
 docker run --rm --gpus all -v <PROJECT_ROOT>:/app -e CHESTXSIM_ROOT=/app chestxsim run_simulation [arguments]
 ```
 
-Run full simulation (Equivalent to the local example above)
+Run full simulation (Equivalent to the local example above). Note that `$(pwd)` refers to your local project root on the host, which is mounted as `/app` inside the Docker container.
 ```bash 
-docker run --rm --gpus all \
-  -v $(pwd):/app \
-  -e CHESTXSIM_ROOT=/app \
-  chestxsim \
-  run_simulation \
-  -i /app/inputs \
-  -c /app/settings/volumeRAD_poly_FDK.json \
-  -o ./results/volumeRAD_poly_FDK
+docker run --rm --gpus all -v $(pwd):/app -e CHESTXSIM_ROOT=/app chestxsim run_simulation -i /app/inputs -c /app/settings/volumeRAD_poly_FDK.json -o /app/results/volumeRAD_poly_FDK
 
 ```
 Run a single module, (Equivalent to the local example above)
-docker run --rm --gpus all \
-  -v $(pwd):/app \
-  -e CHESTXSIM_ROOT=/app \
-  chestxsim \
-  run_simulation \
-  -i /app/results/volumeRAD_poly_FDK/CT_converted/density \
-  -c /app/settings/volumeRAD_poly_FDK.json \
-  -o /app/results/volumeRAD_poly_FDK \
-  -m 1
+````bash
+docker run --rm --gpus all -v $(pwd):/app -e CHESTXSIM_ROOT=/app chestxsim run_simulation -i /app/results/volumeRAD_poly_FDK/CT_converted/density -c /app/settings/volumeRAD_poly_FDK.json -o /app/results/volumeRAD_poly_FDK -m 1
+````
 
 #### 2. Manual pipeline construction
 You can manually compose a pipeline using `.add(step, save=...)`. For example, to create a preprocessing pipeline:
