@@ -14,21 +14,22 @@ inputs/*
 # materials folder and subfolders
 # materials/*
 # !materials/.gitkeep
-!materials/executables/
-!materials/models/
+# !materials/executables/
+# !materials/models/
 # !materials/mac/
 # !materials/spectra/
 materials/executables/*
 !materials/executables/.gitkeep
-materials/models/*
-!materials/models/.gitkeep
-!materials/calibration/
+# materials/models/*
+# !materials/models/.gitkeep
+materials/calibration/*
+!materials/calibration/.gitkeep
+materials/phantom/*
+!materials/phantom/.gitkeep
 # materials/mac/*
 # !materials/mac/.gitkeep
 # materials/spectra/*
 # !materials/spectra/.gitkeep
-
-
 
 # examples folders
 examples/volumes/*
