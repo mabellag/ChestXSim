@@ -25,3 +25,16 @@ except Exception as e:
     import numpy as np
     xp = np
     print(f"GPU initialization failed: {e}. Using NumPy (CPU)")
+
+import warnings
+from numpy import VisibleDeprecationWarning
+warnings.filterwarnings(
+    "ignore",
+    message="The default value of the antialias parameter*",
+    category=UserWarning
+)
+
+warnings.filterwarnings(
+    "ignore",
+    category=VisibleDeprecationWarning
+)

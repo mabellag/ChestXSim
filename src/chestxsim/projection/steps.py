@@ -158,6 +158,7 @@ class PhysicsEffect:
             "spectrum": "Polychromatic" if self.source.poly_flag else "Monochromatic",
             "ISL": self.apply_ISL,
             "I0": self.source.I0,
+            "voltage":self.source.voltage,
             "flood_corrected": self.apply_flood_correction,
             "log_applied": self.log
         }

@@ -98,6 +98,10 @@ PROCESSING_STEP_REGISTRY = {
     "SART": SART,
     "CT_resampled": Interpolator,
     "CT_rotated": VolumeRotate, 
+    "FuxsimFDK":FuxsimFDK,
+    "RaptorFDK": RaptorFDK,
+    "voxel_scaling": VoxelSizeSetter,
+
 
 }
 
@@ -172,7 +176,6 @@ class Pipeline:
             sig = inspect.signature(cls.__init__)
             param_names = set(sig.parameters) - {"self"}
             params = {k: v for k, v in (step_config or {}).items() if k in param_names}
-            
             # inject geometry from pipeline if steps requires it 
             if "geometry" in param_names and "geometry" not in params:
                 params["geometry"] = self.geometry

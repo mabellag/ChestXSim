@@ -34,6 +34,7 @@ EXECUTABLES_DIR = MATERIALS_DIR / "executables"
 MODELS_DIR = MATERIALS_DIR / "models"
 MAC_DIR = MATERIALS_DIR / "mac"
 SPECTRUM_DIR = MATERIALS_DIR / "spectra"
+CALIBRATION_DIR = MATERIALS_DIR/"calibration"
 
 # Other
 RESULTS_DIR = PROJECT_ROOT / "results"
@@ -57,7 +58,10 @@ STEP_TO_FOLDER = {
     "FDK": "FDK",
     "SART": "SART",
     "Interpolator": "CT_interpolated",
-    "VolumeRotate":"CT_rotated"
+    "VolumeRotate":"CT_rotated",
+    "FuxsimFDK":"FuxsimFDK",
+    "RaptorFDK": "RaptorFDK",
+    "VoxelSizeSetter": "CT_voxel_scaled"
 }
 
 UNITS_TO_FOLDER = {

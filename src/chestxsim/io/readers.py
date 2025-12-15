@@ -391,6 +391,7 @@ class RawReader(CTReader):
             Combined volumeData with multi-tissue volume
         """
         base_path = Path(base_path)
+        # print(base_path)
         
         # Find tissue folders with the case ID
         tissue_folders = self.find_tissue_folders_by_id(base_path, case_id)
@@ -430,7 +431,8 @@ class RawReader(CTReader):
     def find_tissue_folders_by_id(base_path: Path, case_id: str) -> Dict[str, Path]:
         """Find tissue folders containing the case ID"""
         tissue_folders = {}
-
+        # print(base_path)
+        # print(base_path.parent)
         # look for any tissue folder containing case_id
         search_dirs = [base_path, base_path.parent]
         
