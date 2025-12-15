@@ -135,7 +135,7 @@ Before showing how to run a simulation, here are the core building blocks that C
 
 - **VolumeData** — the main data container for CT/DCT volumes + metadata.
     ```bash
-    VolumeData(
+    volumeData(
         volume: xp.ndarray,          # 3D or 4D CuPy array
         metadata: MetadataContainer  # voxel size, dims, ID, logs...
     )
@@ -180,8 +180,10 @@ A minimal configuration for simulating a VolumeRAD-like DCT system at 120 kVp:
   "projection": {                     // Simple X-ray projection simulation
     "projection": {"opt": "astra", "channel_wise": true, "save": true},
     "physics_effect": {
-      "voltage": 120,                 // Tube voltage (kVp)
-      "poly_flag": true,              // Enable polychromatic spectrum
+      "voltage": 120,                   // Tube voltage (kVp)
+      "poly_flag": true,                // Enable polychromatic spectrum
+      "apply_flood_correction": true,   // apply flood correction
+      "log": true,                      // apply log 
       "save": true
     }
   },
@@ -225,6 +227,7 @@ This lets you reuse previous results:
 > - `mode=2` → reconstruction only  
 
 **Run via CLI (local installation)**  
+
 General syntax:
 ```bash 
 run_simulation --input PATH_TO_CT_STUDIES --config settings/CONFIG.json [--mode 0|1|2] [--output OUTPUT_DIR]
@@ -240,6 +243,7 @@ run_simulation -i .\results\volumeRAD_poly_FDK\CT_converted\density -c .\setting
 ```
 
 **Run via CLI inside Docker**
+
 General syntax:
 ```bash 
 docker run --rm --gpus all -v <PROJECT_ROOT>:/app -e CHESTXSIM_ROOT=/app chestxsim run_simulation [arguments]
@@ -316,7 +320,7 @@ When reconstruction is run with  `match_input=True`, the resulting tomosynthesis
 
 ### 4. Guides and Notebooks 
 See the full tutorials:
-- [CLI Cheatsheet]
+- [CLI Cheatsheet](./examples/ChestXsim_CLI_Cheatsheet.docx)
 - [Core Structures](./examples/0.%20Data_containers.ipynb)  
 - [I/O Management](./examples/1.%20CT%20Readers.ipynb)
 - [Pipeline](./examples/5.%20Pipeline.ipynb)
@@ -329,10 +333,8 @@ See the full tutorials:
 ## 🧠 Deep Learning Utilities
 **Available pretrained models**
 - **Bed Removal Model** — segments non-patient structures (stretcher/table) for removal.  
-  Weights: `materials/models/model_BedSeg.pt`
 
 - **Bone Segmentation Model** — generates a bone mask to separate bone from soft tissue.  
-  Weights: `materials/models/model_BoneSeg.pt`
 
 **Implementation notes**
 - Both models use a U-Net architecture with a ResNet encoder (PyTorch).
