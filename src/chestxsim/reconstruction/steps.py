@@ -68,7 +68,7 @@ class _BaseReconstructionStep:
             round(init_shape[2] * init_vx[2] + up_mm + down_mm),
         ]
         self.reco_dim_mm = tuple(reco_dim_mm)
-        print( self.reco_dim_mm)
+        # print( self.reco_dim_mm)
 
     def _prepare_reco_grid(self, md):
         """
