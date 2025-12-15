@@ -18,6 +18,7 @@ __all__ = [
     "VolumeRotate",
     "TissueSegmenter",
     "UnitConverter",
+    "VoxelSizeSetter"
 ]
 
 class BedRemover:
@@ -144,7 +145,6 @@ class VolumeFlipper:
         }
         return volumeData(volume=processed_volume, metadata=metadata)
 
-
 class VolumeRotate:
     def __init__(self, 
                  angle: Optional[float] = None,
@@ -196,7 +196,6 @@ class VolumeRotate:
 
         return volumeData(volume=processed_volume, metadata=metadata)
 
-
 class TissueSegmenter:
     def __init__(self,
                  threshold: Optional[int] = None,
@@ -229,7 +228,6 @@ class TissueSegmenter:
             tissue_masks = xp.stack([binary_mask_bone, binary_soft_mask], axis=-1) # => (H, W, D, T)
 
         if self.save_masks:
-            print("save mask tissue")
             saver = SaveManager()
             for i, tissue_type in enumerate(self.tissue_types):
                 mask = tissue_masks[..., i]
@@ -347,5 +345,18 @@ class UnitConverter:
 
         return volumeData(volume=processed_volume, metadata=metadata)
 
-# class change_vx_size():
-#     def __init__()
+class VoxelSizeSetter:
+    def __init__(self, target_vx:list[float]):
+        """
+        Changes metadata voxel size without target resampling 
+        It reduce the apparent physical size of the object 
+        It ensures volume fits within the projection/reconstruction field of view to avoid truncation artifacts
+        """
+        self.target_vx = target_vx
+    
+    def __call__(self, ct_data: volumeData) -> volumeData:
+        volume = ensure_4d(ct_data.volume)
+        metadata = copy.deepcopy(ct_data.metadata)
+        metadata.voxel_size = self.target_vx
+        metadata.step_outputs[self.__class__.__name__] = {"target_vx": self.target_vx}
+        return volumeData(volume=volume, metadata=metadata)
