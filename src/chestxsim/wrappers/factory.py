@@ -69,14 +69,41 @@ def create_operator(
     if k in {"fuxsim", "raptor"}:
         if not path_to_executable:
             path_to_executable = get_path_executable(k)
-        return op_class(geometry=geometry, executable=path_to_executable)
+        return op_class(geometry=geometry, executable_path=path_to_executable)
 
     raise ValueError(f"Unsupported engine '{engine}'")
 
 
+from chestxsim.io.paths import EXECUTABLES_DIR  
+def get_path_executable(engine: str) -> str:
+    """
+    Return the path to the executable for a given external engine.
     
-def get_path_executable():
-    pass 
+    Expected directory structure:
+        materials/executables/<engine_name>/*.exe
+    """
+    eng = engine.strip().lower()
+    folder = EXECUTABLES_DIR / eng
+
+    if not folder.exists():
+        raise FileNotFoundError(
+            f"Executable folder not found for engine '{engine}': {folder}"
+        )
+
+
+    exes = list(folder.glob("*.exe"))
+    if len(exes) == 0:
+        raise FileNotFoundError(
+            f"No .exe file found in {folder}. "
+            f"Please place the executable inside that folder."
+        )
+    if len(exes) > 1:
+        raise RuntimeError(
+            f"Multiple executables found in {folder}: {exes}\n"
+            f"Please keep only ONE .exe file."
+        )
+    return str(exes[0])
+
 
 
 
